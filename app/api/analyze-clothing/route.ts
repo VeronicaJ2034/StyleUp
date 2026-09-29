@@ -26,7 +26,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const imageBuffer = await image.arrayBuffer();
+      const imageBuffer = await image.arrayBuffer();
     const base64Image = Buffer.from(imageBuffer).toString("base64");
 
     const interaction = await ai.interactions.create({
@@ -56,7 +56,7 @@ Return only the requested structured information.
         {
   type: "image",
   data: base64Image,
-  mime_type: "image/jpeg",
+  mime_type: image.type || "image/jpeg",
 },
       ],
       response_format: {
