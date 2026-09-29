@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 
 type Tab = 'matches' | 'add';
 type ClothingItem = { name: string; category: string; color: string; tone: string };
+type WeatherState = { temperature: number; description: string };
 
 const clothingItems: ClothingItem[] = [
   { name: 'Linen shirt', category: 'TOPS', color: '#E8E0D0', tone: '#9C805A' },
@@ -37,7 +38,7 @@ export default function HomePage() {
           {isLoading ? <LoadingScreen /> : <>
             <header className="app-header">
               <div><p className="eyebrow">YOUR DIGITAL CLOSET</p><h1>StyleUp</h1></div>
-              <div className="weather-badge"><strong>18°</strong><span>TODAY</span></div>
+              <WeatherBadge />
             </header>
             <div className="screen-content">
               {activeTab === 'matches' ? <MatchesScreen matchIndex={matchIndex} onNext={() => setMatchIndex((current) => (current + 1) % matchIdeas.length)} /> : <AddClothingScreen />}
@@ -51,6 +52,82 @@ export default function HomePage() {
       </section>
     </main>
   );
+}
+
+function WeatherBadge() {
+  const [weather, setWeather] = useState<WeatherState | null>(null);
+  const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [refresh, setRefresh] = useState(0);
+
+  useEffect(() => {
+    let isActive = true;
+
+    const loadWeather = async () => {
+      if (!navigator.geolocation) {
+        setStatus('error');
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(async ({ coords }) => {
+        try {
+          const params = new URLSearchParams({
+            latitude: String(coords.latitude),
+            longitude: String(coords.longitude),
+            current: 'temperature_2m,weather_code',
+            temperature_unit: 'fahrenheit',
+            timezone: 'auto',
+          });
+          const response = await fetch(`https://api.open-meteo.com/v1/forecast?${params}`);
+          if (!response.ok) throw new Error('Weather request failed');
+
+          const data = await response.json();
+          if (!isActive) return;
+          setWeather({
+            temperature: Math.round(data.current.temperature_2m),
+            description: describeWeather(data.current.weather_code),
+          });
+          setStatus('ready');
+        } catch {
+          if (isActive) setStatus('error');
+        }
+      }, () => {
+        if (isActive) setStatus('error');
+      }, { enableHighAccuracy: false, timeout: 10000, maximumAge: 15 * 60 * 1000 });
+    };
+
+    void loadWeather();
+    return () => { isActive = false; };
+  }, [refresh]);
+
+  useEffect(() => {
+    const interval = window.setInterval(() => setRefresh((value) => value + 1), 15 * 60 * 1000);
+    return () => window.clearInterval(interval);
+  }, []);
+
+  const label = status === 'ready' ? weather?.description ?? 'LOCAL WEATHER' : status === 'loading' ? 'YOUR AREA' : 'TAP TO RETRY';
+  return (
+    <button
+      className="weather-badge"
+      type="button"
+      onClick={() => { if (status === 'error') { setStatus('loading'); setRefresh((value) => value + 1); } }}
+      aria-label={status === 'ready' && weather ? `${weather.temperature} degrees, ${weather.description} in your location` : 'Get weather for your location'}
+      title={status === 'error' ? 'Allow location access to see local weather' : 'Current weather at your location'}
+    >
+      <strong>{weather ? `${weather.temperature}°F` : status === 'loading' ? '···' : '—'}</strong>
+      <span>{label}</span>
+    </button>
+  );
+}
+
+function describeWeather(code: number): string {
+  if (code === 0) return 'CLEAR';
+  if ([1, 2, 3].includes(code)) return 'CLOUDY';
+  if ([45, 48].includes(code)) return 'FOGGY';
+  if ([51, 53, 55, 56, 57].includes(code)) return 'DRIZZLE';
+  if ([61, 63, 65, 66, 67, 80, 81, 82].includes(code)) return 'RAINY';
+  if ([71, 73, 75, 77, 85, 86].includes(code)) return 'SNOWY';
+  if ([95, 96, 99].includes(code)) return 'STORMY';
+  return 'LOCAL WEATHER';
 }
 
 function LoadingScreen() {

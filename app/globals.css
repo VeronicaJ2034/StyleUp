@@ -11,7 +11,8 @@ button { font: inherit; }
 .app-header { display: flex; justify-content: space-between; align-items: flex-start; padding: 47px 24px 10px; }
 .eyebrow, .weather-badge span, .section-heading, .category-heading, .item-card span { color: #8b847a; font-size: 10px; font-weight: 700; letter-spacing: 1.4px; }
 .app-header h1 { margin: 3px 0 0; font-size: 31px; line-height: 1; letter-spacing: 0; }
-.weather-badge { display: grid; justify-items: end; gap: 2px; padding-top: 3px; }
+.weather-badge { display: grid; justify-items: end; gap: 2px; max-width: 112px; border: 0; padding: 3px 0 0; background: transparent; cursor: pointer; text-align: right; }
+.weather-badge:focus-visible { outline: 2px solid #c66b4b; outline-offset: 4px; border-radius: 2px; }
 .weather-badge strong { color: #c66b4b; font-size: 20px; }
 .weather-badge span { font-size: 9px; }
 .screen-content > * { margin-left: 24px; margin-right: 24px; }
