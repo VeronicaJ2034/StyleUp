@@ -26,6 +26,7 @@ export default function HomePage() {
   const [activeTab, setActiveTab] = useState<Tab>('matches');
   const [matchIndex, setMatchIndex] = useState(0);
   const [closetItems, setClosetItems] = useState<ClothingItem[]>([]);
+  const [addClothingState, setAddClothingState] = useState<AddClothingState>(initialAddClothingState);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [hasLoadedTheme, setHasLoadedTheme] = useState(false);
 
