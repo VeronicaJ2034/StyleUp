@@ -59,6 +59,13 @@ export default function HomePage() {
     setAccounts((current) => current.map((account) => account.id === activeAccount.id ? { ...account, closetItems: [item, ...account.closetItems] } : account));
   }
 
+  function removeFromCloset(item: ClothingItem) {
+    if (!activeAccount || !window.confirm(`Remove ${item.name} from your closet?`)) return;
+    setAccounts((current) => current.map((account) => account.id === activeAccount.id
+      ? { ...account, closetItems: account.closetItems.filter((closetItem) => closetItem !== item) }
+      : account));
+  }
+
   function signIn(accountId: string) {
     setActiveAccountId(accountId);
     setActiveTab('matches');
@@ -80,7 +87,7 @@ export default function HomePage() {
               <WeatherBadge />
             </header>
             <div className="screen-content">
-              {activeTab === 'account' ? <AccountScreen accounts={accounts} activeAccount={activeAccount} onCreate={createAccount} onSignIn={signIn} onSignOut={signOut} /> : !activeAccount ? <SignedOutScreen onOpenAccount={() => setActiveTab('account')} /> : activeTab === 'matches' ? <MatchesScreen items={closetItems} matchIndex={matchIndex} onNext={() => setMatchIndex((current) => (current + 1) % matchIdeas.length)} /> : <AddClothingScreen items={closetItems} onItemSaved={updateCloset} />}
+              {activeTab === 'account' ? <AccountScreen accounts={accounts} activeAccount={activeAccount} onCreate={createAccount} onSignIn={signIn} onSignOut={signOut} /> : !activeAccount ? <SignedOutScreen onOpenAccount={() => setActiveTab('account')} /> : activeTab === 'matches' ? <MatchesScreen items={closetItems} matchIndex={matchIndex} onNext={() => setMatchIndex((current) => (current + 1) % matchIdeas.length)} onRemove={removeFromCloset} /> : <AddClothingScreen items={closetItems} onItemSaved={updateCloset} onRemove={removeFromCloset} />}
             </div>
             <nav className="tab-bar" aria-label="Closet sections">
               <TabButton label="MAKE A MATCH" symbol="+" active={activeTab === 'matches'} onClick={() => setActiveTab('matches')} />
@@ -214,7 +221,7 @@ function LoadingScreen() {
   return <div className="loading-screen"><img className="loading-logo" src="/StyleUpLogo.png" alt="StyleUp" /><p>A better way to get dressed.</p><div className="loading-line" /></div>;
 }
 
-function MatchesScreen({ items, matchIndex, onNext }: { items: ClothingItem[]; matchIndex: number; onNext: () => void }) {
+function MatchesScreen({ items, matchIndex, onNext, onRemove }: { items: ClothingItem[]; matchIndex: number; onNext: () => void; onRemove: (item: ClothingItem) => void }) {
   if (items.length === 0) return <div className="empty-state"><div className="empty-mark">+</div><h2>Your closet is waiting</h2><p>Upload a clothing photo to start making matches from pieces you own.</p></div>;
 
   const match = matchIdeas[matchIndex];
@@ -227,15 +234,15 @@ function MatchesScreen({ items, matchIndex, onNext }: { items: ClothingItem[]; m
       <button className="primary-button" type="button" onClick={onNext}>SHOW ANOTHER LOOK <span aria-hidden="true">→</span></button>
     </article>
     <div className="section-heading"><h4>YOUR CLOSET</h4><span>{String(items.length).padStart(2, '0')} PIECES</span></div>
-    <div className="item-grid">{items.map((item) => <ClothingCard item={item} key={`${item.name}-${item.imageUrl || item.color}`} />)}</div>
+    <div className="item-grid">{items.map((item) => <ClothingCard item={item} key={`${item.name}-${item.imageUrl || item.color}`} onRemove={onRemove} />)}</div>
   </>;
 }
 
-function ClothingCard({ item }: { item: ClothingItem }) {
-  return <article className="item-card"><div className={`item-image${item.imageUrl ? ' has-photo' : ''}`} style={{ backgroundColor: item.color, backgroundImage: item.imageUrl ? `url(${item.imageUrl})` : undefined }}><div className="item-shape" style={{ backgroundColor: item.tone }} /></div><span>{item.category}</span><p>{item.name}</p></article>;
+function ClothingCard({ item, onRemove }: { item: ClothingItem; onRemove: (item: ClothingItem) => void }) {
+  return <article className="item-card"><div className={`item-image${item.imageUrl ? ' has-photo' : ''}`} style={{ backgroundColor: item.color, backgroundImage: item.imageUrl ? `url(${item.imageUrl})` : undefined }}><div className="item-shape" style={{ backgroundColor: item.tone }} /><button className="remove-item-button" type="button" onClick={() => onRemove(item)} aria-label={`Remove ${item.name} from your closet`} title="Remove from closet">×</button></div><span>{item.category}</span><p>{item.name}</p></article>;
 }
 
-function AddClothingScreen({ items, onItemSaved }: { items: ClothingItem[]; onItemSaved: (item: ClothingItem) => void }) {
+function AddClothingScreen({ items, onItemSaved, onRemove }: { items: ClothingItem[]; onItemSaved: (item: ClothingItem) => void; onRemove: (item: ClothingItem) => void }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [error, setError] = useState('');
@@ -277,7 +284,7 @@ function AddClothingScreen({ items, onItemSaved }: { items: ClothingItem[]; onIt
     {error && <p className="upload-error" role="alert">{error}</p>}
     {analysis && <article className="analysis-result"><div><span className="result-label">STYLEUP FOUND</span><h3>{analysis.category}</h3></div><div className="result-grid"><span>COLOR<strong>{analysis.color}</strong></span><span>STYLE<strong>{analysis.style}</strong></span><span>PATTERN<strong>{analysis.pattern}</strong></span><span>FORMALITY<strong>{analysis.formality}</strong></span></div><button className="primary-button" type="button" onClick={() => setAnalysis(null)}>ADD ANOTHER PHOTO <span aria-hidden="true">+</span></button></article>}
     <div className="category-heading-row"><h4 className="category-heading">YOUR CLOSET BY CATEGORY</h4><span>PHOTO-SORTED</span></div>
-    <div className="category-list">{categories.map((category, index) => { const categoryItems = items.filter((item) => item.category === category.toUpperCase()); return <section className="category-section" key={category}><button className="category-row" type="button" onClick={() => fileInputRef.current?.click()}><span className="category-dot" style={{ backgroundColor: categoryTones[index] }} /><span>{category}<small>{categoryItems.length ? `${categoryItems.length} ${categoryItems.length === 1 ? 'piece' : 'pieces'}` : 'Ready for your first piece'}</small></span><span aria-hidden="true">+</span></button>{categoryItems.length > 0 && <div className="category-items">{categoryItems.map((item) => <ClothingCard item={item} key={`${item.name}-${item.imageUrl || item.color}`} />)}</div>}</section>; })}</div>
+    <div className="category-list">{categories.map((category, index) => { const categoryItems = items.filter((item) => item.category === category.toUpperCase()); return <section className="category-section" key={category}><button className="category-row" type="button" onClick={() => fileInputRef.current?.click()}><span className="category-dot" style={{ backgroundColor: categoryTones[index] }} /><span>{category}<small>{categoryItems.length ? `${categoryItems.length} ${categoryItems.length === 1 ? 'piece' : 'pieces'}` : 'Ready for your first piece'}</small></span><span aria-hidden="true">+</span></button>{categoryItems.length > 0 && <div className="category-items">{categoryItems.map((item) => <ClothingCard item={item} key={`${item.name}-${item.imageUrl || item.color}`} onRemove={onRemove} />)}</div>}</section>; })}</div>
   </>;
 }
 
