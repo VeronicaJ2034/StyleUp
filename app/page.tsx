@@ -274,7 +274,7 @@ function AddClothingScreen({ items, onItemSaved, onRemove }: { items: ClothingIt
   }
 
   return <>
-    <h2>Add to your closet</h2><p className="page-subtitle">Start with the pieces you reach for most.</p>
+    <h2 className="add-page-heading">Add to your closet</h2><p className="page-subtitle">Start with the pieces you reach for most.</p>
     <input ref={fileInputRef} className="visually-hidden" type="file" accept="image/*" onChange={handleUpload} />
     <button className={`upload-panel${isAnalyzing ? ' analyzing' : ''}`} type="button" onClick={() => fileInputRef.current?.click()} disabled={isAnalyzing}>
       <span className="upload-circle">{isAnalyzing ? '…' : '+'}</span>
