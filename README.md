@@ -51,12 +51,14 @@ npm install
 
 ### Environment Variables
 
-StyleUp uses the Gemini API to analyze clothing images.
+StyleUp uses the Gemini API to analyze clothing images and Supabase for optional email/password accounts and account profile photos.
 
 Create a `.env.local` file in the project root:
 
 ```env
 GEMINI_API_KEY=YOUR_GEMINI_API_KEY
+NEXT_PUBLIC_SUPABASE_URL=YOUR_SUPABASE_PROJECT_URL
+NEXT_PUBLIC_SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_KEY
 ```
 
 Do not commit `.env.local` to GitHub. API keys and other secrets should be kept out of source control.
@@ -65,9 +67,20 @@ A `.env.example` file can be used to show teammates which environment variables 
 
 ```env
 GEMINI_API_KEY=
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
 ```
 
 Each developer should create their own `.env.local` file with their own API key.
+
+### Supabase accounts and profile photos
+
+1. Create a Supabase project and copy its project URL and public anon/publishable key into `.env.local` using the variable names above. These public values are safe to use in the browser; never put a service-role key in a `NEXT_PUBLIC_` variable.
+2. In the Supabase SQL Editor, run [`supabase/profile-photos.sql`](supabase/profile-photos.sql). It creates the public profile-photo bucket (5 MB maximum; JPG, PNG, and WebP) and policies that limit uploads, updates, and deletes to the signed-in user’s own folder.
+3. Enable email/password authentication in Supabase Auth. For local development, add `http://localhost:3000` to the allowed site URLs.
+4. Restart the Next.js development server after adding environment variables. Select the circular StyleUp logo to create an account or sign in, then add a profile photo. During sign-up, users may optionally provide their birthday; signed-in users can edit it from their account panel. The birthday is stored in that user’s Supabase Auth metadata. The profile photo is stored under the authenticated user’s ID and will appear on that account on other devices.
+
+The photo bucket is public so the avatar can load without expiring signed URLs. Only authenticated users can write to their own user-ID folder; the public anon key does not grant service-level access.
 
 ### Run locally
 
