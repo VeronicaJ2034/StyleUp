@@ -2,9 +2,10 @@
 
 import { ChangeEvent, Dispatch, FormEvent, SetStateAction, useEffect, useRef, useState } from 'react';
 import ProfileAccount from '../components/ProfileAccount';
+import { supabase } from '../lib/supabase';
 
 type Tab = 'matches' | 'add';
-type ClothingItem = { name: string; category: string; color: string; tone: string; imageUrl?: string };
+type ClothingItem = { id?: string; name: string; category: string; color: string; tone: string; imageUrl?: string };
 type Analysis = { category: string; color: string; secondaryColor: string | null; pattern: string; style: string; formality: string };
 type WeatherState = { temperature: number; description: string; rainChance: number; humidity: number; windSpeed: number; locationName: string; latitude: number; longitude: number };
 type GeoSearchResult = { name: string; country?: string; admin1?: string; latitude: number; longitude: number };
@@ -21,14 +22,91 @@ const categories = ['Tops', 'Pants', 'Jackets', 'Shoes'];
 const categoryTones = ['#8D86C0', '#7A91B2', '#A38BC0', '#8A9DB7'];
 const categoryMap: Record<Analysis['category'], string> = { shirt: 'TOPS', jacket: 'JACKETS', pants: 'PANTS', shoes: 'SHOES' };
 
+function makeId() {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function normalizeCategory(value: string) {
+  return value.trim().toUpperCase();
+}
+
 export default function HomePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<Tab>('matches');
   const [matchIndex, setMatchIndex] = useState(0);
   const [closetItems, setClosetItems] = useState<ClothingItem[]>([]);
+  const [userId, setUserId] = useState<string | null>(null);
   const [addClothingState, setAddClothingState] = useState<AddClothingState>(initialAddClothingState);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [hasLoadedTheme, setHasLoadedTheme] = useState(false);
+
+  const refreshCloset = async (currentUserId: string | null) => {
+    const client = supabase;
+    if (!client || !currentUserId) {
+      const savedItems = window.localStorage.getItem('styleup-closet');
+      if (savedItems) {
+        const parsedItems = JSON.parse(savedItems) as ClothingItem[];
+        setClosetItems(parsedItems.filter((item) => item.imageUrl));
+      } else {
+        setClosetItems([]);
+      }
+      return;
+    }
+
+    const { data, error } = await client
+      .from('closet_items')
+      .select('*')
+      .eq('user_id', currentUserId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error loading closet items:', error.message);
+      setClosetItems([]);
+      return;
+    }
+
+    const mappedRows = (data ?? []).map((item) => ({
+      id: item.id,
+      name: item.name,
+      category: normalizeCategory(String(item.category ?? '')),
+      color: item.color,
+      tone: item.tone,
+      imageUrl: item.image_url ?? undefined,
+    }));
+
+    if (mappedRows.length > 0) {
+      setClosetItems(mappedRows);
+      return;
+    }
+
+    const { data: userData } = await client.auth.getUser();
+    const fallbackUserId = userData.user?.id ?? currentUserId;
+    const { data: bucketFiles, error: bucketError } = await client.storage.from('closet-photos').list(fallbackUserId ?? '', { limit: 200 });
+    if (bucketError || !bucketFiles) {
+      setClosetItems([]);
+      return;
+    }
+
+    const bucketItems = bucketFiles
+      .filter((file) => file.name && !file.name.startsWith('.'))
+      .map((file) => {
+        const fullPath = fallbackUserId ? `${fallbackUserId}/${file.name}` : file.name;
+        const { data: publicData } = client.storage.from('closet-photos').getPublicUrl(fullPath);
+        return {
+          id: file.id ?? file.name,
+          name: file.name.replace(/\.[^/.]+$/, '').replace(/[-_]+/g, ' '),
+          category: 'SHOES',
+          color: '#E8E0D0',
+          tone: '#9C805A',
+          imageUrl: publicData.publicUrl,
+        };
+      });
+
+    setClosetItems(bucketItems);
+  };
 
   useEffect(() => {
     const timer = window.setTimeout(() => setIsLoading(false), 1200);
@@ -36,16 +114,114 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => {
+    const client = supabase;
+    if (!client) return;
+
+    let isActive = true;
+
+    const syncSession = async () => {
+      const { data: { session } } = await client.auth.getSession();
+      if (!isActive) return;
+      const activeUserId = session?.user?.id ?? null;
+      setUserId(activeUserId);
+      void refreshCloset(activeUserId);
+    };
+
+    void syncSession();
+
+    const { data: { subscription } } = client.auth.onAuthStateChange((_event, session) => {
+      if (!isActive) return;
+      const activeUserId = session?.user?.id ?? null;
+      setUserId(activeUserId);
+      void refreshCloset(activeUserId);
+    });
+
+    return () => {
+      isActive = false;
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!supabase || userId) return;
+
     const savedItems = window.localStorage.getItem('styleup-closet');
     if (savedItems) {
       const parsedItems = JSON.parse(savedItems) as ClothingItem[];
       setClosetItems(parsedItems.filter((item) => item.imageUrl));
+    } else {
+      setClosetItems([]);
     }
-  }, []);
+  }, [userId]);
 
   useEffect(() => {
-    if (!isLoading) window.localStorage.setItem('styleup-closet', JSON.stringify(closetItems));
-  }, [closetItems, isLoading]);
+    const client = supabase;
+    if (!client || !userId) {
+      if (!isLoading) window.localStorage.setItem('styleup-closet', JSON.stringify(closetItems));
+      return;
+    }
+
+    let isActive = true;
+
+    const loadCloset = async () => {
+      if (!isActive) return;
+      await refreshCloset(userId);
+    };
+
+    void loadCloset();
+    return () => { isActive = false; };
+  }, [isLoading, userId]);
+
+  async function saveClosetItem(item: ClothingItem) {
+    const client = supabase;
+    if (!client) {
+      setClosetItems((current) => [item, ...current]);
+      return;
+    }
+
+    const { data: userData, error: userError } = await client.auth.getUser();
+    const currentUserId = userData.user?.id ?? userId;
+
+    if (!currentUserId) {
+      setClosetItems((current) => [item, ...current]);
+      return;
+    }
+
+    const record = {
+      id: item.id ?? makeId(),
+      user_id: currentUserId,
+      name: item.name,
+      category: normalizeCategory(item.category),
+      color: item.color,
+      tone: item.tone,
+      image_url: item.imageUrl ?? null,
+    };
+
+    if (userError) {
+      console.error('Error getting user for closet save:', userError.message);
+    }
+
+    const { error } = await client.from('closet_items').insert(record).select();
+    if (error) {
+      console.error('Error saving closet item:', error.message);
+      return;
+    }
+
+    const { data } = await client
+      .from('closet_items')
+      .select('*')
+      .eq('user_id', currentUserId)
+      .order('created_at', { ascending: false });
+
+    setClosetItems((data ?? []).map((entry) => ({
+      id: entry.id,
+      name: entry.name,
+      category: normalizeCategory(String(entry.category ?? '')),
+      color: entry.color,
+      tone: entry.tone,
+      imageUrl: entry.image_url ?? undefined,
+    })));
+  }
 
   useEffect(() => {
     setIsDarkMode(window.localStorage.getItem('styleup-theme') === 'dark');
@@ -70,7 +246,21 @@ export default function HomePage() {
               </div>
             </header>
             <div className="screen-content">
-              {activeTab === 'matches' ? <MatchesScreen items={closetItems} matchIndex={matchIndex} onNext={() => setMatchIndex((current) => (current + 1) % matchIdeas.length)} /> : <AddClothingScreen items={closetItems} state={addClothingState} setState={setAddClothingState} onItemSaved={(item) => setClosetItems((current) => [item, ...current])} />}
+              {activeTab === 'matches' ? <MatchesScreen items={closetItems} userId={userId} matchIndex={matchIndex} onNext={() => setMatchIndex((current) => (current + 1) % matchIdeas.length)} /> : <AddClothingScreen items={closetItems} userId={userId} state={addClothingState} setState={setAddClothingState} onItemSaved={async (item) => {
+                const savedItem = { ...item, id: item.id ?? makeId() };
+                if (!supabase) {
+                  setClosetItems((current) => [savedItem, ...current]);
+                  return;
+                }
+
+                const { data: userData } = await supabase.auth.getUser();
+                if (!userData.user) {
+                  setClosetItems((current) => [savedItem, ...current]);
+                  return;
+                }
+
+                await saveClosetItem(savedItem);
+              }} />}
             </div>
             <nav className="tab-bar" aria-label="Closet sections">
               <TabButton label="MAKE A MATCH" symbol="+" active={activeTab === 'matches'} onClick={() => setActiveTab('matches')} />
@@ -359,8 +549,8 @@ function LoadingScreen() {
   return <div className="loading-screen"><img className="loading-logo" src="/StyleUpLogo.png" alt="StyleUp" /><p>A better way to get dressed.</p><div className="loading-line" /></div>;
 }
 
-function MatchesScreen({ items, matchIndex, onNext }: { items: ClothingItem[]; matchIndex: number; onNext: () => void }) {
-  if (items.length === 0) return <div className="empty-state"><div className="empty-mark">+</div><h2>Your closet is waiting</h2><p>Upload a clothing photo to start making matches from pieces you own.</p></div>;
+function MatchesScreen({ items, userId, matchIndex, onNext }: { items: ClothingItem[]; userId: string | null; matchIndex: number; onNext: () => void }) {
+  if (items.length === 0) return <div className="empty-state"><div className="empty-mark">+</div><h2>Your closet is waiting</h2><p>Upload a clothing photo to start making matches from pieces you own.</p><p className="debug-session">Signed in: {userId ? 'yes' : 'no'} {userId ? `• user ${userId.slice(0, 8)}` : ''} • closet rows: {items.length}</p></div>;
 
   const match = matchIdeas[matchIndex];
   return <>
@@ -380,7 +570,7 @@ function ClothingCard({ item }: { item: ClothingItem }) {
   return <article className="item-card"><div className={`item-image${item.imageUrl ? ' has-photo' : ''}`} style={{ backgroundColor: item.color, backgroundImage: item.imageUrl ? `url(${item.imageUrl})` : undefined }}><div className="item-shape" style={{ backgroundColor: item.tone }} /></div><span>{item.category}</span><p>{item.name}</p></article>;
 }
 
-function AddClothingScreen({ items, state, setState, onItemSaved }: { items: ClothingItem[]; state: AddClothingState; setState: Dispatch<SetStateAction<AddClothingState>>; onItemSaved: (item: ClothingItem) => void }) {
+function AddClothingScreen({ items, userId, state, setState, onItemSaved }: { items: ClothingItem[]; userId: string | null; state: AddClothingState; setState: Dispatch<SetStateAction<AddClothingState>>; onItemSaved: (item: ClothingItem) => void }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { isAnalyzing, error, analysis } = state;
 
@@ -397,9 +587,30 @@ function AddClothingScreen({ items, state, setState, onItemSaved }: { items: Clo
       const response = await fetch('/api/analyze-clothing', { method: 'POST', body: formData });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || 'Unable to analyze that photo.');
-      const imageUrl = await readImage(file);
+
+      let imageUrl = '';
+      if (supabase) {
+        const { data: userData } = await supabase.auth.getUser();
+        const user = userData.user;
+        if (user) {
+          const fileName = `${user.id}/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9-_\.]/g, '-')}`;
+          const { error: uploadError } = await supabase.storage
+            .from('closet-photos')
+            .upload(fileName, file, { upsert: true, cacheControl: '3600', contentType: file.type });
+
+          if (uploadError) throw new Error(uploadError.message);
+
+          const { data } = supabase.storage.from('closet-photos').getPublicUrl(fileName);
+          imageUrl = data.publicUrl;
+        } else {
+          imageUrl = await readImage(file);
+        }
+      } else {
+        imageUrl = await readImage(file);
+      }
+
       setState((current) => ({ ...current, analysis: result, isAnalyzing: false, error: '' }));
-      onItemSaved({ name: `${result.color} ${result.category}`, category: categoryMap[result.category as Analysis['category']], color: '#E8E0D0', tone: '#9C805A', imageUrl });
+      onItemSaved({ name: `${result.color} ${result.category}`, category: normalizeCategory(categoryMap[result.category as Analysis['category']]), color: '#E8E0D0', tone: '#9C805A', imageUrl });
     } catch (uploadError) {
       setState((current) => ({ ...current, error: uploadError instanceof Error ? uploadError.message : 'Unable to analyze that photo.', isAnalyzing: false }));
     } finally {
@@ -416,9 +627,10 @@ function AddClothingScreen({ items, state, setState, onItemSaved }: { items: Clo
       <span>{isAnalyzing ? 'StyleUp is identifying the details' : 'Take a photo or choose from your camera roll'}</span>
     </button>
     {error && <p className="upload-error" role="alert">{error}</p>}
+    <p className="debug-session">Signed in: {userId ? 'yes' : 'no'} {userId ? `• user ${userId.slice(0, 8)}` : ''} • closet rows: {items.length}</p>
     {analysis && <article className="analysis-result"><div><span className="result-label">STYLEUP FOUND</span><h3>{analysis.category}</h3></div><div className="result-grid"><span>COLOR<strong>{analysis.color}</strong></span><span>STYLE<strong>{analysis.style}</strong></span><span>PATTERN<strong>{analysis.pattern}</strong></span><span>FORMALITY<strong>{analysis.formality}</strong></span></div><button className="primary-button" type="button" onClick={() => setState((current) => ({ ...current, analysis: null }))}>ADD ANOTHER PHOTO <span aria-hidden="true">+</span></button></article>}
     <div className="category-heading-row"><h4 className="category-heading">YOUR CLOSET BY CATEGORY</h4><span>PHOTO-SORTED</span></div>
-    <div className="category-list">{categories.map((category, index) => { const categoryItems = items.filter((item) => item.category === category.toUpperCase()); return <section className="category-section" key={category}><button className="category-row" type="button" onClick={() => fileInputRef.current?.click()}><span className="category-dot" style={{ backgroundColor: categoryTones[index] }} /><span>{category}<small>{categoryItems.length ? `${categoryItems.length} ${categoryItems.length === 1 ? 'piece' : 'pieces'}` : 'Ready for your first piece'}</small></span><span aria-hidden="true">+</span></button>{categoryItems.length > 0 && <div className="category-items">{categoryItems.map((item) => <ClothingCard item={item} key={`${item.name}-${item.imageUrl || item.color}`} />)}</div>}</section>; })}</div>
+    <div className="category-list">{categories.map((category, index) => { const categoryItems = items.filter((item) => normalizeCategory(item.category) === normalizeCategory(category)); return <section className="category-section" key={category}><button className="category-row" type="button" onClick={() => fileInputRef.current?.click()}><span className="category-dot" style={{ backgroundColor: categoryTones[index] }} /><span>{category}<small>{categoryItems.length ? `${categoryItems.length} ${categoryItems.length === 1 ? 'piece' : 'pieces'}` : 'Ready for your first piece'}</small></span><span aria-hidden="true">+</span></button>{categoryItems.length > 0 && <div className="category-items">{categoryItems.map((item) => <ClothingCard item={item} key={`${item.name}-${item.imageUrl || item.color}`} />)}</div>}</section>; })}</div>
   </>;
 }
 
