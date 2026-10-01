@@ -141,7 +141,6 @@ export default function ProfileAccount() {
   return <>
     <button className="profile-trigger" type="button" onClick={() => { setIsOpen(true); setMessage(''); }} aria-label={user ? 'Open your account profile' : 'Sign in or create an account'} title="Account profile">
       <img className="brand-logo" src={avatarUrl ?? '/StyleUpLogo.png'} alt={avatarUrl ? 'Your profile photo' : 'StyleUp account'} />
-      <span className="profile-trigger-indicator" aria-hidden="true">⌄</span>
     </button>
 
     {isOpen && <div className="account-overlay" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setIsOpen(false); }}>
