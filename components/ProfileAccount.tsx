@@ -12,8 +12,10 @@ export default function ProfileAccount() {
   const [mode, setMode] = useState<AuthMode>('sign-in');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
   const [birthday, setBirthday] = useState('');
   const [isBirthdayEditing, setIsBirthdayEditing] = useState(true);
+  const [isNameEditing, setIsNameEditing] = useState(true);
   const [message, setMessage] = useState('');
   const [isBusy, setIsBusy] = useState(false);
   const photoInput = useRef<HTMLInputElement>(null);
@@ -29,7 +31,11 @@ export default function ProfileAccount() {
   }, []);
 
   useEffect(() => {
+    const savedName = typeof user?.user_metadata.full_name === 'string' ? user.user_metadata.full_name
+      : typeof user?.user_metadata.name === 'string' ? user.user_metadata.name : '';
     const savedBirthday = typeof user?.user_metadata.birthday === 'string' ? user.user_metadata.birthday : '';
+    setName(savedName);
+    setIsNameEditing(!savedName);
     setBirthday(savedBirthday);
     setIsBirthdayEditing(!savedBirthday);
   }, [user]);
@@ -41,7 +47,7 @@ export default function ProfileAccount() {
     setMessage('');
 
     const result = mode === 'sign-up'
-      ? await supabase.auth.signUp({ email, password, options: { data: { birthday: birthday || null } } })
+      ? await supabase.auth.signUp({ email, password, options: { data: { full_name: name || null, birthday: birthday || null } } })
       : await supabase.auth.signInWithPassword({ email, password });
 
     setIsBusy(false);
@@ -55,6 +61,23 @@ export default function ProfileAccount() {
       setMessage('You’re signed in. Your profile photo will be saved to your account.');
       setPassword('');
     }
+  }
+
+  async function saveName(event?: FormEvent<HTMLFormElement>) {
+    if (event) event.preventDefault();
+    if (!supabase || !user) return;
+    setIsBusy(true);
+    setMessage('');
+    const { error } = await supabase.auth.updateUser({ data: { full_name: name || null } });
+    setIsBusy(false);
+    if (error) {
+      setMessage(error.message);
+      return;
+    }
+    const { data } = await supabase.auth.getUser();
+    setUser(data.user);
+    setIsNameEditing(false);
+    setMessage('Name saved to your account.');
   }
 
   async function saveBirthday(event: FormEvent<HTMLFormElement>) {
@@ -152,6 +175,13 @@ export default function ProfileAccount() {
         <h2 id="account-title">{user ? 'Your account' : 'Your StyleUp account'}</h2>
         {user ? <>
           <p className="account-email">{user.email}</p>
+          {isNameEditing ? <form className="account-form account-name-form" onSubmit={saveName}>
+            <label>Name<input type="text" value={name} onChange={(event) => setName(event.target.value)} placeholder="Your name" /></label>
+            <button className="account-action" type="submit" disabled={isBusy}>{isBusy ? 'SAVING…' : 'SAVE NAME'}</button>
+          </form> : <div className="account-name-saved">
+            <span><strong>Name</strong>{name || 'No name added'}</span>
+            <button className="account-birthday-edit" type="button" onClick={() => setIsNameEditing(true)}>Edit</button>
+          </div>}
           {isBirthdayEditing ? <form className="account-form account-birthday-form" onSubmit={saveBirthday}>
             <label>Birthday<input type="date" autoComplete="bday" value={birthday} max={new Date().toISOString().slice(0, 10)} onChange={(event) => setBirthday(event.target.value)} required /></label>
             <button className="account-action" type="submit" disabled={isBusy}>{isBusy ? 'SAVING…' : 'SAVE BIRTHDAY'}</button>
@@ -166,6 +196,7 @@ export default function ProfileAccount() {
         </> : supabase ? <>
           <p className="account-description">Sign in to save a profile photo to your account and use it on other devices.</p>
           <form className="account-form" onSubmit={submitAuth}>
+            {mode === 'sign-up' && <label>Name (optional)<input type="text" value={name} onChange={(event) => setName(event.target.value)} placeholder="Your name" /></label>}
             <label>Email<input type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} required /></label>
             <label>Password<input type="password" autoComplete={mode === 'sign-in' ? 'current-password' : 'new-password'} minLength={6} value={password} onChange={(event) => setPassword(event.target.value)} required /></label>
             {mode === 'sign-up' && <label>Birthday (optional)<input type="date" autoComplete="bday" value={birthday} max={new Date().toISOString().slice(0, 10)} onChange={(event) => setBirthday(event.target.value)} /></label>}
