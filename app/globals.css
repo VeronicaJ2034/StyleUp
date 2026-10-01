@@ -6,11 +6,17 @@ button { font: inherit; }
 .stage { min-height: 100vh; display: grid; place-items: center; padding: 16px; background: #ffffff; }
 .phone-frame { position: relative; width: min(390px, calc(100vw - 32px), calc((100dvh - 32px) * 390 / 844)); height: min(844px, calc(100dvh - 32px)); min-height: 520px; padding: 12px; border: 2px solid #111111; border-radius: 48px; background: #111111; box-shadow: 0 24px 60px #26354a30, 0 4px 14px #16142035; }
 .device-island { position: absolute; z-index: 3; top: 22px; left: 50%; width: 112px; height: 28px; transform: translateX(-50%); border-radius: 20px; background: #050505; box-shadow: inset 0 1px 2px #ffffff13; }
-.phone-screen { position: relative; display: flex; flex-direction: column; height: 100%; overflow: hidden; border-radius: 39px; background: var(--paper); }
+.phone-screen { position: relative; display: flex; flex-direction: column; height: 100%; overflow: hidden; border-radius: 39px; background: var(--paper); color: var(--ink); }
+.phone-screen.dark-mode { --ink: #e8edf2; --deep: #1f2b37; --brand: #beb8ed; --paper: #171d24; --lavender: #27333f; --yellow: #e8c34f; --soft-yellow: #51461f; --blue: #9abbd7; --muted: #aab4bf; }
 .screen-content { flex: 1 1 auto; min-height: 0; height: auto; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; padding-bottom: 8px; }
 .screen-content::-webkit-scrollbar { display: none; }
 .app-header { display: flex; justify-content: space-between; align-items: flex-start; min-height: 88px; padding: 36px 28px 10px; border-bottom: 1px solid #d7d3ea; border-radius: 39px 39px 0 0; background: var(--lavender); }
 .brand-lockup { display: grid; }
+.header-actions { display: flex; align-items: flex-start; gap: 12px; }
+.theme-toggle { display: grid; flex: 0 0 34px; place-items: center; width: 34px; height: 34px; margin-top: 8px; border: 1px solid #e2d394; border-radius: 50%; padding: 0; background: #fff7d7; color: #765d14; cursor: pointer; font: 18px/1 Arial, sans-serif; }
+.theme-toggle span { transform: translateY(1px); }
+.theme-toggle:hover, .theme-toggle:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+.phone-screen.dark-mode .theme-toggle { border-color: #5b6671; background: #3a4652; color: #f1d16d; }
 .brand-logo { display: block; width: 38px; height: 38px; border: 0; border-radius: 50%; background: var(--brand); box-shadow: 0 4px 10px #403b7030; object-fit: cover; object-position: center; }
 .profile-trigger { position: relative; display: grid; place-items: center; width: 42px; height: 42px; border: 0; border-radius: 50%; padding: 2px; background: transparent; cursor: pointer; }
 .profile-trigger:focus-visible, .account-close:focus-visible, .account-action:focus-visible, .account-text-action:focus-visible, .account-birthday-edit:focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; }
@@ -120,6 +126,18 @@ h2 { margin: 17px 0 0; font-size: 24px; line-height: 1.1; }
 .category-items .item-image { height: 76px; }
 .category-items .item-card span { margin-top: 6px; font-size: 8px; }
 .category-items .item-card p { font-size: 12px; }
+.phone-screen.dark-mode .app-header { border-color: #3b4652; }
+.phone-screen.dark-mode .account-panel { border-color: #3b4652; }
+.phone-screen.dark-mode .account-form input { border-color: #53616d; background: #202a34; }
+.phone-screen.dark-mode .account-name-saved, .phone-screen.dark-mode .account-birthday-saved { border-color: #414e5a; background: #202a34; }
+.phone-screen.dark-mode .account-message { color: var(--ink); }
+.phone-screen.dark-mode .eyebrow, .phone-screen.dark-mode .weather-badge span, .phone-screen.dark-mode .section-heading, .phone-screen.dark-mode .category-heading, .phone-screen.dark-mode .item-card span { color: var(--blue); }
+.phone-screen.dark-mode .page-subtitle, .phone-screen.dark-mode .upload-panel > span:last-child { color: #b8c0c8; }
+.phone-screen.dark-mode .section-heading span, .phone-screen.dark-mode .category-heading-row > span, .phone-screen.dark-mode .category-row > span:nth-child(2) small { color: var(--muted); }
+.phone-screen.dark-mode .category-section { border-color: #394550; }
+.phone-screen.dark-mode .category-row { color: var(--ink); }
+.phone-screen.dark-mode .analysis-result { border-color: #435463; background: #25323d; }
+.phone-screen.dark-mode .secondary-button { border-color: #647789; color: var(--blue); }
 .upload-error { margin-top: -22px; margin-bottom: 28px; color: #a34432; font: 12px Arial, sans-serif; }
 .analysis-result { margin: -8px 28px 24px; padding: 16px; border: 1px solid #b8d0e2; border-radius: 14px; background: #e5f0f8; box-shadow: 0 5px 14px #29466322; }
 .result-label { color: var(--blue); font: 700 9px Arial, sans-serif; letter-spacing: 1.3px; }
