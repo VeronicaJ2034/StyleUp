@@ -26,7 +26,8 @@ export default function HomePage() {
   const [activeTab, setActiveTab] = useState<Tab>('matches');
   const [matchIndex, setMatchIndex] = useState(0);
   const [closetItems, setClosetItems] = useState<ClothingItem[]>([]);
-  const [addClothingState, setAddClothingState] = useState<AddClothingState>(initialAddClothingState);
+  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [hasLoadedTheme, setHasLoadedTheme] = useState(false);
 
   useEffect(() => {
     const timer = window.setTimeout(() => setIsLoading(false), 1200);
@@ -45,15 +46,27 @@ export default function HomePage() {
     if (!isLoading) window.localStorage.setItem('styleup-closet', JSON.stringify(closetItems));
   }, [closetItems, isLoading]);
 
+  useEffect(() => {
+    setIsDarkMode(window.localStorage.getItem('styleup-theme') === 'dark');
+    setHasLoadedTheme(true);
+  }, []);
+
+  useEffect(() => {
+    if (hasLoadedTheme) window.localStorage.setItem('styleup-theme', isDarkMode ? 'dark' : 'light');
+  }, [hasLoadedTheme, isDarkMode]);
+
   return (
     <main className="stage">
       <section className="phone-frame" aria-label="StyleUp phone preview">
         <div className="device-island" aria-hidden="true" />
-        <div className="phone-screen">
+        <div className={`phone-screen${isDarkMode ? ' dark-mode' : ''}`}>
           {isLoading ? <LoadingScreen /> : <>
             <header className="app-header">
               <div className="brand-lockup"><ProfileAccount /></div>
-              <WeatherBadge />
+              <div className="header-actions">
+                <ThemeToggle isDarkMode={isDarkMode} onToggle={() => setIsDarkMode((current) => !current)} />
+                <WeatherBadge />
+              </div>
             </header>
             <div className="screen-content">
               {activeTab === 'matches' ? <MatchesScreen items={closetItems} matchIndex={matchIndex} onNext={() => setMatchIndex((current) => (current + 1) % matchIdeas.length)} /> : <AddClothingScreen items={closetItems} state={addClothingState} setState={setAddClothingState} onItemSaved={(item) => setClosetItems((current) => [item, ...current])} />}
@@ -66,6 +79,21 @@ export default function HomePage() {
         </div>
       </section>
     </main>
+  );
+}
+
+function ThemeToggle({ isDarkMode, onToggle }: { isDarkMode: boolean; onToggle: () => void }) {
+  return (
+    <button
+      className="theme-toggle"
+      type="button"
+      onClick={onToggle}
+      aria-label={`Switch to ${isDarkMode ? 'light' : 'dark'} mode`}
+      aria-pressed={isDarkMode}
+      title={`Switch to ${isDarkMode ? 'light' : 'dark'} mode`}
+    >
+      <span aria-hidden="true">{isDarkMode ? '☾' : '☼'}</span>
+    </button>
   );
 }
 
@@ -379,7 +407,7 @@ function AddClothingScreen({ items, state, setState, onItemSaved }: { items: Clo
   }
 
   return <>
-    <h2>Add to your closet</h2><p className="page-subtitle">Start with the pieces you reach for most.</p>
+    <h2 className="add-page-heading">Add to your closet</h2><p className="page-subtitle">Start with the pieces you reach for most.</p>
     <input ref={fileInputRef} className="visually-hidden" type="file" accept="image/*" onChange={handleUpload} />
     <button className={`upload-panel${isAnalyzing ? ' analyzing' : ''}`} type="button" onClick={() => fileInputRef.current?.click()} disabled={isAnalyzing}>
       <span className="upload-circle">{isAnalyzing ? '…' : '+'}</span>
