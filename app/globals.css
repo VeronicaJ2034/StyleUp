@@ -42,10 +42,34 @@ button { font: inherit; }
 .account-message { margin: 14px 0 0; border-radius: 7px; padding: 9px; background: var(--lavender); color: var(--deep); font: 12px/1.45 Arial, sans-serif; overflow-wrap: anywhere; }
 .eyebrow, .weather-badge span, .section-heading, .category-heading, .item-card span { color: #777393; font-size: 10px; font-weight: 700; letter-spacing: 1.4px; }
 .app-header h1 { margin: 3px 0 0; font-size: 31px; line-height: 1; letter-spacing: 0; }
+.weather-wrapper { position: relative; display: flex; justify-content: flex-end; }
 .weather-badge { display: grid; justify-items: end; gap: 2px; max-width: 112px; border: 0; padding: 3px 0 0; background: transparent; cursor: pointer; text-align: right; }
 .weather-badge:focus-visible { outline: 2px solid var(--blue); outline-offset: 4px; border-radius: 2px; }
 .weather-badge strong { color: var(--brand); font-size: 18px; }
 .weather-badge span { font-size: 9px; }
+.weather-panel { position: absolute; top: calc(100% + 8px); right: 0; z-index: 20; width: min(220px, calc(100vw - 82px)); padding: 14px 14px 12px; border: 1px solid #d0d6eb; border-radius: 16px; background: rgba(255,255,255,0.98); box-shadow: 0 16px 28px rgba(41,70,99,0.16); }
+.weather-panel-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.weather-panel-location { min-width: 0; flex: 1; }
+.weather-panel-header h3 { margin: 3px 0 0; font-size: 15px; line-height: 1.2; overflow-wrap: anywhere; }
+.weather-panel-location small { display: block; margin-top: 4px; color: var(--muted); font: 10px Arial, sans-serif; }
+.weather-label, .weather-mini-label { color: #777393; font: 700 9px Arial, sans-serif; letter-spacing: 1.1px; }
+.close-panel { flex: 0 0 auto; border: 0; background: transparent; color: var(--brand); font-size: 22px; line-height: 1; cursor: pointer; }
+.weather-panel-snapshot { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 14px; padding: 10px 0; border-top: 1px solid #ecedf5; border-bottom: 1px solid #ecedf5; }
+.weather-panel-snapshot strong { display: block; margin-top: 4px; font-size: 20px; }
+.weather-panel-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 8px; margin-top: 12px; }
+.weather-panel-grid span { color: var(--blue); font: 700 9px Arial, sans-serif; letter-spacing: 1px; }
+.weather-panel-grid strong { display: block; margin-top: 4px; color: var(--ink); font: 12px Georgia, serif; letter-spacing: 0; }
+.weather-form { margin-top: 14px; }
+.weather-form label { display: grid; gap: 6px; color: var(--blue); font: 700 9px Arial, sans-serif; letter-spacing: 1px; }
+.location-input-wrap { position: relative; }
+.weather-form input { width: 100%; border: 1px solid #cbd8ea; border-radius: 8px; padding: 10px 11px; margin-top: 4px; font: 13px Arial, sans-serif; }
+.location-suggestions { position: absolute; z-index: 30; top: calc(100% + 4px); left: 0; right: 0; margin: 0; padding: 6px; list-style: none; border: 1px solid #dfe4ef; border-radius: 10px; background: #ffffff; box-shadow: 0 12px 20px rgba(41, 70, 99, 0.12); }
+.location-suggestion { padding: 8px 10px; border-radius: 8px; cursor: pointer; font: 12px Arial, sans-serif; color: var(--ink); }
+.location-suggestion:hover, .location-suggestion:focus { background: #edf3fb; }
+.location-suggestion.muted { color: var(--muted); cursor: default; }
+.weather-form-actions { display: flex; gap: 8px; margin-top: 10px; }
+.small-button { width: 100%; padding: 10px 8px; }
+.weather-empty { margin: 12px 0 0; color: var(--muted); font: 12px Arial, sans-serif; }
 .screen-content > * { margin-left: 32px; margin-right: 32px; }
 h2 { margin: 17px 0 0; font-size: 24px; line-height: 1.1; }
 .add-page-heading { font-size: 21px; text-align: center; white-space: nowrap; }
