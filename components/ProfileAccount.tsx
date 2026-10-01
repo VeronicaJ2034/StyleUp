@@ -13,6 +13,7 @@ export default function ProfileAccount() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [birthday, setBirthday] = useState('');
+  const [isBirthdayEditing, setIsBirthdayEditing] = useState(true);
   const [message, setMessage] = useState('');
   const [isBusy, setIsBusy] = useState(false);
   const photoInput = useRef<HTMLInputElement>(null);
@@ -28,7 +29,9 @@ export default function ProfileAccount() {
   }, []);
 
   useEffect(() => {
-    setBirthday(typeof user?.user_metadata.birthday === 'string' ? user.user_metadata.birthday : '');
+    const savedBirthday = typeof user?.user_metadata.birthday === 'string' ? user.user_metadata.birthday : '';
+    setBirthday(savedBirthday);
+    setIsBirthdayEditing(!savedBirthday);
   }, [user]);
 
   async function submitAuth(event: FormEvent<HTMLFormElement>) {
@@ -67,6 +70,7 @@ export default function ProfileAccount() {
     }
     const { data } = await supabase.auth.getUser();
     setUser(data.user);
+    setIsBirthdayEditing(false);
     setMessage('Birthday saved to your account.');
   }
 
@@ -149,10 +153,13 @@ export default function ProfileAccount() {
         <h2 id="account-title">{user ? 'Your account' : 'Your StyleUp account'}</h2>
         {user ? <>
           <p className="account-email">{user.email}</p>
-          <form className="account-form account-birthday-form" onSubmit={saveBirthday}>
-            <label>Birthday<input type="date" autoComplete="bday" value={birthday} max={new Date().toISOString().slice(0, 10)} onChange={(event) => setBirthday(event.target.value)} /></label>
+          {isBirthdayEditing ? <form className="account-form account-birthday-form" onSubmit={saveBirthday}>
+            <label>Birthday<input type="date" autoComplete="bday" value={birthday} max={new Date().toISOString().slice(0, 10)} onChange={(event) => setBirthday(event.target.value)} required /></label>
             <button className="account-action" type="submit" disabled={isBusy}>{isBusy ? 'SAVING…' : 'SAVE BIRTHDAY'}</button>
-          </form>
+          </form> : <div className="account-birthday-saved">
+            <span><strong>Birthday</strong>{new Date(`${birthday}T00:00:00`).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+            <button className="account-birthday-edit" type="button" onClick={() => setIsBirthdayEditing(true)}>Edit</button>
+          </div>}
           <input ref={photoInput} className="visually-hidden" type="file" accept="image/jpeg,image/png,image/webp" onChange={uploadPhoto} />
           <button className="account-action" type="button" onClick={() => photoInput.current?.click()} disabled={isBusy}>{isBusy ? 'SAVING…' : avatarUrl ? 'CHANGE PROFILE PHOTO' : 'ADD PROFILE PHOTO'}</button>
           {avatarUrl && <button className="account-text-action" type="button" onClick={removePhoto} disabled={isBusy}>Remove photo</button>}
