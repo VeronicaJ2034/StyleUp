@@ -1,6 +1,7 @@
 'use client';
 
 import { ChangeEvent, useEffect, useRef, useState } from 'react';
+import ProfileAccount from '../components/ProfileAccount';
 
 type Tab = 'matches' | 'add';
 type ClothingItem = { name: string; category: string; color: string; tone: string; imageUrl?: string };
@@ -46,7 +47,7 @@ export default function HomePage() {
         <div className="phone-screen">
           {isLoading ? <LoadingScreen /> : <>
             <header className="app-header">
-              <div className="brand-lockup"><img className="brand-logo" src="/StyleUpLogo.png" alt="StyleUp" /></div>
+              <div className="brand-lockup"><ProfileAccount /></div>
               <WeatherBadge />
             </header>
             <div className="screen-content">
