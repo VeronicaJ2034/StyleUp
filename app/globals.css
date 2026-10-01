@@ -6,11 +6,17 @@ button { font: inherit; }
 .stage { min-height: 100vh; display: grid; place-items: center; padding: 16px; background: #ffffff; }
 .phone-frame { position: relative; width: min(390px, calc(100vw - 32px), calc((100dvh - 32px) * 390 / 844)); height: min(844px, calc(100dvh - 32px)); min-height: 520px; padding: 12px; border: 2px solid #111111; border-radius: 48px; background: #111111; box-shadow: 0 24px 60px #26354a30, 0 4px 14px #16142035; }
 .device-island { position: absolute; z-index: 3; top: 22px; left: 50%; width: 112px; height: 28px; transform: translateX(-50%); border-radius: 20px; background: #050505; box-shadow: inset 0 1px 2px #ffffff13; }
-.phone-screen { position: relative; display: flex; flex-direction: column; height: 100%; overflow: hidden; border-radius: 39px; background: var(--paper); }
+.phone-screen { position: relative; display: flex; flex-direction: column; height: 100%; overflow: hidden; border-radius: 39px; background: var(--paper); color: var(--ink); }
+.phone-screen.dark-mode { --ink: #e8edf2; --deep: #1f2b37; --brand: #beb8ed; --paper: #171d24; --lavender: #27333f; --yellow: #e8c34f; --soft-yellow: #51461f; --blue: #9abbd7; --muted: #aab4bf; }
 .screen-content { flex: 1 1 auto; min-height: 0; height: auto; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; padding-bottom: 8px; }
 .screen-content::-webkit-scrollbar { display: none; }
 .app-header { display: flex; justify-content: space-between; align-items: flex-start; min-height: 88px; padding: 36px 28px 10px; border-bottom: 1px solid #d7d3ea; border-radius: 39px 39px 0 0; background: var(--lavender); }
 .brand-lockup { display: grid; }
+.header-actions { display: flex; align-items: flex-start; gap: 12px; }
+.theme-toggle { display: grid; flex: 0 0 34px; place-items: center; width: 34px; height: 34px; margin-top: 8px; border: 1px solid #e2d394; border-radius: 50%; padding: 0; background: #fff7d7; color: #765d14; cursor: pointer; font: 18px/1 Arial, sans-serif; }
+.theme-toggle span { transform: translateY(1px); }
+.theme-toggle:hover, .theme-toggle:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+.phone-screen.dark-mode .theme-toggle { border-color: #5b6671; background: #3a4652; color: #f1d16d; }
 .brand-logo { display: block; width: 38px; height: 38px; border: 0; border-radius: 50%; background: var(--brand); box-shadow: 0 4px 10px #403b7030; object-fit: cover; object-position: center; }
 .profile-trigger { position: relative; display: grid; place-items: center; width: 42px; height: 42px; border: 0; border-radius: 50%; padding: 2px; background: transparent; cursor: pointer; }
 .profile-trigger:focus-visible, .account-close:focus-visible, .account-action:focus-visible, .account-text-action:focus-visible, .account-birthday-edit:focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; }
@@ -36,10 +42,34 @@ button { font: inherit; }
 .account-message { margin: 14px 0 0; border-radius: 7px; padding: 9px; background: var(--lavender); color: var(--deep); font: 12px/1.45 Arial, sans-serif; overflow-wrap: anywhere; }
 .eyebrow, .weather-badge span, .section-heading, .category-heading, .item-card span { color: #777393; font-size: 10px; font-weight: 700; letter-spacing: 1.4px; }
 .app-header h1 { margin: 3px 0 0; font-size: 31px; line-height: 1; letter-spacing: 0; }
+.weather-wrapper { position: relative; display: flex; justify-content: flex-end; }
 .weather-badge { display: grid; justify-items: end; gap: 2px; max-width: 112px; border: 0; padding: 3px 0 0; background: transparent; cursor: pointer; text-align: right; }
 .weather-badge:focus-visible { outline: 2px solid var(--blue); outline-offset: 4px; border-radius: 2px; }
 .weather-badge strong { color: var(--brand); font-size: 18px; }
 .weather-badge span { font-size: 9px; }
+.weather-panel { position: absolute; top: calc(100% + 8px); right: 0; z-index: 20; width: min(220px, calc(100vw - 82px)); padding: 14px 14px 12px; border: 1px solid #d0d6eb; border-radius: 16px; background: rgba(255,255,255,0.98); box-shadow: 0 16px 28px rgba(41,70,99,0.16); }
+.weather-panel-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.weather-panel-location { min-width: 0; flex: 1; }
+.weather-panel-header h3 { margin: 3px 0 0; font-size: 15px; line-height: 1.2; overflow-wrap: anywhere; }
+.weather-panel-location small { display: block; margin-top: 4px; color: var(--muted); font: 10px Arial, sans-serif; }
+.weather-label, .weather-mini-label { color: #777393; font: 700 9px Arial, sans-serif; letter-spacing: 1.1px; }
+.close-panel { flex: 0 0 auto; border: 0; background: transparent; color: var(--brand); font-size: 22px; line-height: 1; cursor: pointer; }
+.weather-panel-snapshot { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 14px; padding: 10px 0; border-top: 1px solid #ecedf5; border-bottom: 1px solid #ecedf5; }
+.weather-panel-snapshot strong { display: block; margin-top: 4px; font-size: 20px; }
+.weather-panel-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 8px; margin-top: 12px; }
+.weather-panel-grid span { color: var(--blue); font: 700 9px Arial, sans-serif; letter-spacing: 1px; }
+.weather-panel-grid strong { display: block; margin-top: 4px; color: var(--ink); font: 12px Georgia, serif; letter-spacing: 0; }
+.weather-form { margin-top: 14px; }
+.weather-form label { display: grid; gap: 6px; color: var(--blue); font: 700 9px Arial, sans-serif; letter-spacing: 1px; }
+.location-input-wrap { position: relative; }
+.weather-form input { width: 100%; border: 1px solid #cbd8ea; border-radius: 8px; padding: 10px 11px; margin-top: 4px; font: 13px Arial, sans-serif; }
+.location-suggestions { position: absolute; z-index: 30; top: calc(100% + 4px); left: 0; right: 0; margin: 0; padding: 6px; list-style: none; border: 1px solid #dfe4ef; border-radius: 10px; background: #ffffff; box-shadow: 0 12px 20px rgba(41, 70, 99, 0.12); }
+.location-suggestion { padding: 8px 10px; border-radius: 8px; cursor: pointer; font: 12px Arial, sans-serif; color: var(--ink); }
+.location-suggestion:hover, .location-suggestion:focus { background: #edf3fb; }
+.location-suggestion.muted { color: var(--muted); cursor: default; }
+.weather-form-actions { display: flex; gap: 8px; margin-top: 10px; }
+.small-button { width: 100%; padding: 10px 8px; }
+.weather-empty { margin: 12px 0 0; color: var(--muted); font: 12px Arial, sans-serif; }
 .screen-content > * { margin-left: 32px; margin-right: 32px; }
 h2 { margin: 17px 0 0; font-size: 24px; line-height: 1.1; }
 .add-page-heading { font-size: 21px; text-align: center; white-space: nowrap; }
@@ -120,6 +150,18 @@ h2 { margin: 17px 0 0; font-size: 24px; line-height: 1.1; }
 .category-items .item-image { height: 76px; }
 .category-items .item-card span { margin-top: 6px; font-size: 8px; }
 .category-items .item-card p { font-size: 12px; }
+.phone-screen.dark-mode .app-header { border-color: #3b4652; }
+.phone-screen.dark-mode .account-panel { border-color: #3b4652; }
+.phone-screen.dark-mode .account-form input { border-color: #53616d; background: #202a34; }
+.phone-screen.dark-mode .account-name-saved, .phone-screen.dark-mode .account-birthday-saved { border-color: #414e5a; background: #202a34; }
+.phone-screen.dark-mode .account-message { color: var(--ink); }
+.phone-screen.dark-mode .eyebrow, .phone-screen.dark-mode .weather-badge span, .phone-screen.dark-mode .section-heading, .phone-screen.dark-mode .category-heading, .phone-screen.dark-mode .item-card span { color: var(--blue); }
+.phone-screen.dark-mode .page-subtitle, .phone-screen.dark-mode .upload-panel > span:last-child { color: #b8c0c8; }
+.phone-screen.dark-mode .section-heading span, .phone-screen.dark-mode .category-heading-row > span, .phone-screen.dark-mode .category-row > span:nth-child(2) small { color: var(--muted); }
+.phone-screen.dark-mode .category-section { border-color: #394550; }
+.phone-screen.dark-mode .category-row { color: var(--ink); }
+.phone-screen.dark-mode .analysis-result { border-color: #435463; background: #25323d; }
+.phone-screen.dark-mode .secondary-button { border-color: #647789; color: var(--blue); }
 .upload-error { margin-top: -22px; margin-bottom: 28px; color: #a34432; font: 12px Arial, sans-serif; }
 .analysis-result { margin: -8px 28px 24px; padding: 16px; border: 1px solid #b8d0e2; border-radius: 14px; background: #e5f0f8; box-shadow: 0 5px 14px #29466322; }
 .result-label { color: var(--blue); font: 700 9px Arial, sans-serif; letter-spacing: 1.3px; }
