@@ -29,6 +29,13 @@ function makeId() {
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
+function getClosetPhotoPath(imageUrl?: string) {
+  const publicPath = '/storage/v1/object/public/closet-photos/';
+  const pathStart = imageUrl?.indexOf(publicPath) ?? -1;
+  if (!imageUrl || pathStart < 0) return null;
+  return decodeURIComponent(imageUrl.slice(pathStart + publicPath.length).split('?')[0]);
+}
+
 function normalizeCategory(value: string) {
   return value.trim().toUpperCase();
 }
@@ -223,6 +230,25 @@ export default function HomePage() {
     })));
   }
 
+  async function deleteClosetItem(item: ClothingItem) {
+    const client = supabase;
+    if (client && userId && item.id) {
+      const { error } = await client.from('closet_items').delete().eq('id', item.id).eq('user_id', userId);
+      if (error) {
+        console.error('Error deleting closet item:', error.message);
+        return;
+      }
+
+      const photoPath = getClosetPhotoPath(item.imageUrl);
+      if (photoPath) {
+        const { error: photoError } = await client.storage.from('closet-photos').remove([photoPath]);
+        if (photoError) console.error('Error deleting closet photo:', photoError.message);
+      }
+    }
+
+    setClosetItems((current) => current.filter((currentItem) => item.id ? currentItem.id !== item.id : currentItem !== item));
+  }
+
   useEffect(() => {
     setIsDarkMode(window.localStorage.getItem('styleup-theme') === 'dark');
     setHasLoadedTheme(true);
@@ -246,7 +272,7 @@ export default function HomePage() {
               </div>
             </header>
             <div className="screen-content">
-              {activeTab === 'matches' ? <MatchesScreen items={closetItems} userId={userId} matchIndex={matchIndex} onNext={() => setMatchIndex((current) => (current + 1) % matchIdeas.length)} /> : <AddClothingScreen items={closetItems} userId={userId} state={addClothingState} setState={setAddClothingState} onItemSaved={async (item) => {
+              {activeTab === 'matches' ? <MatchesScreen items={closetItems} userId={userId} matchIndex={matchIndex} onNext={() => setMatchIndex((current) => (current + 1) % matchIdeas.length)} onDelete={deleteClosetItem} /> : <AddClothingScreen items={closetItems} userId={userId} state={addClothingState} setState={setAddClothingState} onDelete={deleteClosetItem} onItemSaved={async (item) => {
                 const savedItem = { ...item, id: item.id ?? makeId() };
                 if (!supabase) {
                   setClosetItems((current) => [savedItem, ...current]);
@@ -549,7 +575,7 @@ function LoadingScreen() {
   return <div className="loading-screen"><img className="loading-logo" src="/StyleUpLogo.png" alt="StyleUp" /><p>A better way to get dressed.</p><div className="loading-line" /></div>;
 }
 
-function MatchesScreen({ items, userId, matchIndex, onNext }: { items: ClothingItem[]; userId: string | null; matchIndex: number; onNext: () => void }) {
+function MatchesScreen({ items, userId, matchIndex, onNext, onDelete }: { items: ClothingItem[]; userId: string | null; matchIndex: number; onNext: () => void; onDelete: (item: ClothingItem) => Promise<void> }) {
   if (items.length === 0) return <div className="empty-state"><div className="empty-mark">+</div><h2>Your closet is waiting</h2><p>Upload a clothing photo to start making matches from pieces you own.</p><p className="debug-session">Signed in: {userId ? 'yes' : 'no'} {userId ? `• user ${userId.slice(0, 8)}` : ''} • closet rows: {items.length}</p></div>;
 
   const match = matchIdeas[matchIndex];
@@ -562,15 +588,15 @@ function MatchesScreen({ items, userId, matchIndex, onNext }: { items: ClothingI
       <button className="primary-button" type="button" onClick={onNext}>SHOW ANOTHER LOOK <span aria-hidden="true">→</span></button>
     </article>
     <div className="section-heading"><h4>YOUR CLOSET</h4><span>{String(items.length).padStart(2, '0')} PIECES</span></div>
-    <div className="item-grid">{items.map((item) => <ClothingCard item={item} key={`${item.name}-${item.imageUrl || item.color}`} />)}</div>
+    <div className="item-grid">{items.map((item) => <ClothingCard item={item} onDelete={onDelete} key={`${item.name}-${item.imageUrl || item.color}`} />)}</div>
   </>;
 }
 
-function ClothingCard({ item }: { item: ClothingItem }) {
-  return <article className="item-card"><div className={`item-image${item.imageUrl ? ' has-photo' : ''}`} style={{ backgroundColor: item.color, backgroundImage: item.imageUrl ? `url(${item.imageUrl})` : undefined }}><div className="item-shape" style={{ backgroundColor: item.tone }} /></div><span>{item.category}</span><p>{item.name}</p></article>;
+function ClothingCard({ item, onDelete }: { item: ClothingItem; onDelete: (item: ClothingItem) => Promise<void> }) {
+  return <article className="item-card"><div className={`item-image${item.imageUrl ? ' has-photo' : ''}`} style={{ backgroundColor: item.color, backgroundImage: item.imageUrl ? `url(${item.imageUrl})` : undefined }}><div className="item-shape" style={{ backgroundColor: item.tone }} /><button className="remove-item-button" type="button" onClick={() => void onDelete(item)} aria-label={`Delete ${item.name}`} title={`Delete ${item.name}`}>×</button></div><span>{item.category}</span><p>{item.name}</p></article>;
 }
 
-function AddClothingScreen({ items, userId, state, setState, onItemSaved }: { items: ClothingItem[]; userId: string | null; state: AddClothingState; setState: Dispatch<SetStateAction<AddClothingState>>; onItemSaved: (item: ClothingItem) => void }) {
+function AddClothingScreen({ items, userId, state, setState, onDelete, onItemSaved }: { items: ClothingItem[]; userId: string | null; state: AddClothingState; setState: Dispatch<SetStateAction<AddClothingState>>; onDelete: (item: ClothingItem) => Promise<void>; onItemSaved: (item: ClothingItem) => void }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { isAnalyzing, error, analysis } = state;
 
@@ -630,7 +656,7 @@ function AddClothingScreen({ items, userId, state, setState, onItemSaved }: { it
     <p className="debug-session">Signed in: {userId ? 'yes' : 'no'} {userId ? `• user ${userId.slice(0, 8)}` : ''} • closet rows: {items.length}</p>
     {analysis && <article className="analysis-result"><div><span className="result-label">STYLEUP FOUND</span><h3>{analysis.category}</h3></div><div className="result-grid"><span>COLOR<strong>{analysis.color}</strong></span><span>STYLE<strong>{analysis.style}</strong></span><span>PATTERN<strong>{analysis.pattern}</strong></span><span>FORMALITY<strong>{analysis.formality}</strong></span></div><button className="primary-button" type="button" onClick={() => setState((current) => ({ ...current, analysis: null }))}>ADD ANOTHER PHOTO <span aria-hidden="true">+</span></button></article>}
     <div className="category-heading-row"><h4 className="category-heading">YOUR CLOSET BY CATEGORY</h4><span>PHOTO-SORTED</span></div>
-    <div className="category-list">{categories.map((category, index) => { const categoryItems = items.filter((item) => normalizeCategory(item.category) === normalizeCategory(category)); return <section className="category-section" key={category}><button className="category-row" type="button" onClick={() => fileInputRef.current?.click()}><span className="category-dot" style={{ backgroundColor: categoryTones[index] }} /><span>{category}<small>{categoryItems.length ? `${categoryItems.length} ${categoryItems.length === 1 ? 'piece' : 'pieces'}` : 'Ready for your first piece'}</small></span><span aria-hidden="true">+</span></button>{categoryItems.length > 0 && <div className="category-items">{categoryItems.map((item) => <ClothingCard item={item} key={`${item.name}-${item.imageUrl || item.color}`} />)}</div>}</section>; })}</div>
+    <div className="category-list">{categories.map((category, index) => { const categoryItems = items.filter((item) => normalizeCategory(item.category) === normalizeCategory(category)); return <section className="category-section" key={category}><button className="category-row" type="button" onClick={() => fileInputRef.current?.click()}><span className="category-dot" style={{ backgroundColor: categoryTones[index] }} /><span>{category}<small>{categoryItems.length ? `${categoryItems.length} ${categoryItems.length === 1 ? 'piece' : 'pieces'}` : 'Ready for your first piece'}</small></span><span aria-hidden="true">+</span></button>{categoryItems.length > 0 && <div className="category-items">{categoryItems.map((item) => <ClothingCard item={item} onDelete={onDelete} key={`${item.name}-${item.imageUrl || item.color}`} />)}</div>}</section>; })}</div>
   </>;
 }
 
