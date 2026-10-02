@@ -47,7 +47,7 @@ button { font: inherit; }
 .weather-badge:focus-visible { outline: 2px solid var(--blue); outline-offset: 4px; border-radius: 2px; }
 .weather-badge strong { color: var(--brand); font-size: 18px; }
 .weather-badge span { font-size: 9px; }
-.weather-panel { position: absolute; top: calc(100% + 8px); right: 0; z-index: 20; width: min(220px, calc(100vw - 82px)); padding: 14px 14px 12px; border: 1px solid #d0d6eb; border-radius: 16px; background: rgba(255,255,255,0.98); box-shadow: 0 16px 28px rgba(41,70,99,0.16); }
+.weather-panel { position: absolute; top: calc(100% + 8px); right: 0; z-index: 20; width: min(220px, calc(100vw - 82px)); padding: 14px 14px 12px; border: 1px solid #d0d6eb; border-radius: 16px; background: var(--paper); color: var(--ink); box-shadow: 0 16px 28px rgba(41,70,99,0.16); }
 .weather-panel-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
 .weather-panel-location { min-width: 0; flex: 1; }
 .weather-panel-header h3 { margin: 3px 0 0; font-size: 15px; line-height: 1.2; overflow-wrap: anywhere; }
@@ -151,6 +151,16 @@ h2 { margin: 17px 0 0; font-size: 24px; line-height: 1.1; }
 .category-items .item-card span { margin-top: 6px; font-size: 8px; }
 .category-items .item-card p { font-size: 12px; }
 .phone-screen.dark-mode .app-header { border-color: #3b4652; }
+.phone-screen.dark-mode .weather-panel { border-color: #465361; }
+.phone-screen.dark-mode .match-card .primary-button { background: #496b84; color: #ffffff; }
+.phone-screen.dark-mode .match-card .primary-button:hover, .phone-screen.dark-mode .match-card .primary-button:focus-visible { background: #38586f; }
+.phone-screen.dark-mode .match-card h3 { color: #26354a; }
+.phone-screen.dark-mode .weather-form .primary-button { background: #496b84; color: #ffffff; }
+.phone-screen.dark-mode .weather-panel-snapshot { border-color: #394550; }
+.phone-screen.dark-mode .weather-label, .phone-screen.dark-mode .weather-mini-label { color: var(--blue); }
+.phone-screen.dark-mode .weather-form input { border-color: #53616d; background: #202a34; color: var(--ink); }
+.phone-screen.dark-mode .location-suggestions { border-color: #465361; background: #202a34; }
+.phone-screen.dark-mode .location-suggestion:hover, .phone-screen.dark-mode .location-suggestion:focus { background: #34414c; }
 .phone-screen.dark-mode .account-panel { border-color: #3b4652; }
 .phone-screen.dark-mode .account-form input { border-color: #53616d; background: #202a34; }
 .phone-screen.dark-mode .account-name-saved, .phone-screen.dark-mode .account-birthday-saved { border-color: #414e5a; background: #202a34; }
