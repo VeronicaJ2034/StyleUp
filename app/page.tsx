@@ -600,7 +600,16 @@ function ClothingCard({ item, onDelete }: { item: ClothingItem; onDelete: (item:
 
 function AddClothingScreen({ items, userId, state, setState, onDelete, onItemSaved }: { items: ClothingItem[]; userId: string | null; state: AddClothingState; setState: Dispatch<SetStateAction<AddClothingState>>; onDelete: (item: ClothingItem) => Promise<void>; onItemSaved: (item: ClothingItem) => void }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { isAnalyzing, error, analysis } = state;
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [error, setError] = useState('');
+  const [analysis, setAnalysis] = useState<Analysis | null>(null);
+  const [expandedCategories, setExpandedCategories] = useState<string[]>([]);
+
+  function toggleCategory(category: string) {
+    setExpandedCategories((current) => current.includes(category)
+      ? current.filter((item) => item !== category)
+      : [...current, category]);
+  }
 
   async function handleUpload(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -655,10 +664,9 @@ function AddClothingScreen({ items, userId, state, setState, onDelete, onItemSav
       <span>{isAnalyzing ? 'StyleUp is identifying the details' : 'Take a photo or choose from your camera roll'}</span>
     </button>
     {error && <p className="upload-error" role="alert">{error}</p>}
-    <p className="debug-session">Signed in: {userId ? 'yes' : 'no'} {userId ? `• user ${userId.slice(0, 8)}` : ''} • closet rows: {items.length}</p>
-    {analysis && <article className="analysis-result"><div><span className="result-label">STYLEUP FOUND</span><h3>{analysis.category}</h3></div><div className="result-grid"><span>COLOR<strong>{analysis.color}</strong></span><span>STYLE<strong>{analysis.style}</strong></span><span>PATTERN<strong>{analysis.pattern}</strong></span><span>FORMALITY<strong>{analysis.formality}</strong></span></div><button className="primary-button" type="button" onClick={() => setState((current) => ({ ...current, analysis: null }))}>ADD ANOTHER PHOTO <span aria-hidden="true">+</span></button></article>}
-    <div className="category-heading-row"><h4 className="category-heading">YOUR CLOSET BY CATEGORY</h4><span>PHOTO-SORTED</span></div>
-    <div className="category-list">{categories.map((category, index) => { const categoryItems = items.filter((item) => normalizeCategory(item.category) === normalizeCategory(category)); return <section className="category-section" key={category}><button className="category-row" type="button" onClick={() => fileInputRef.current?.click()}><span className="category-dot" style={{ backgroundColor: categoryTones[index] }} /><span>{category}<small>{categoryItems.length ? `${categoryItems.length} ${categoryItems.length === 1 ? 'piece' : 'pieces'}` : 'Ready for your first piece'}</small></span><span aria-hidden="true">+</span></button>{categoryItems.length > 0 && <div className="category-items">{categoryItems.map((item) => <ClothingCard item={item} onDelete={onDelete} key={`${item.name}-${item.imageUrl || item.color}`} />)}</div>}</section>; })}</div>
+    {analysis && <article className="analysis-result"><div><span className="result-label">STYLEUP FOUND</span><h3>{analysis.category}</h3></div><div className="result-grid"><span>COLOR<strong>{analysis.color}</strong></span><span>STYLE<strong>{analysis.style}</strong></span><span>PATTERN<strong>{analysis.pattern}</strong></span><span>FORMALITY<strong>{analysis.formality}</strong></span></div><button className="primary-button" type="button" onClick={() => setAnalysis(null)}>ADD ANOTHER PHOTO <span aria-hidden="true">+</span></button></article>}
+    <div className="category-heading-row"><h4 className="category-heading">YOUR CLOSET BY CATEGORY</h4></div>
+    <div className="category-list">{categories.map((category, index) => { const categoryItems = items.filter((item) => item.category === category.toUpperCase()); const isExpanded = expandedCategories.includes(category); const categoryId = `category-${category.toLowerCase()}`; return <section className="category-section" key={category}><button className="category-row" type="button" onClick={() => toggleCategory(category)} aria-expanded={isExpanded} aria-controls={categoryId}><span className="category-dot" style={{ backgroundColor: categoryTones[index] }} /><span>{category}<small>{categoryItems.length ? `${categoryItems.length} ${categoryItems.length === 1 ? 'piece' : 'pieces'}` : 'Ready for your first piece'}</small></span><span aria-hidden="true">{isExpanded ? '−' : '+'}</span></button>{isExpanded && <div className="category-items" id={categoryId}>{categoryItems.length ? categoryItems.map((item) => <ClothingCard item={item} key={`${item.name}-${item.imageUrl || item.color}`} onDelete={onDelete} />) : <p className="category-empty">No {category.toLowerCase()} in your closet yet.</p>}</div>}</section>; })}</div>
   </>;
 }
 
