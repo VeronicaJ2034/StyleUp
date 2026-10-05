@@ -360,14 +360,14 @@ function WeatherBadge() {
     }
   };
 
-  const loadCurrentLocationWeather = () => {
+  const loadCurrentLocationWeather = (openPanel = true) => {
+    setPanelOpen(openPanel);
     if (!navigator.geolocation) {
       setStatus('error');
       return;
     }
 
     setStatus('loading');
-    setPanelOpen(true);
     navigator.geolocation.getCurrentPosition(async ({ coords }) => {
       await loadWeatherForCoordinates(coords.latitude, coords.longitude, 'Approximate current location');
     }, () => {
@@ -395,6 +395,7 @@ function WeatherBadge() {
       setManualStatus('idle');
       setLocationSuggestions([]);
       setShowSuggestions(false);
+      setPanelOpen(false);
     } catch {
       setManualStatus('error');
     }
@@ -522,6 +523,7 @@ function WeatherBadge() {
                               setManualStatus('loading');
                               await loadWeatherForCoordinates(suggestion.latitude, suggestion.longitude, locationName);
                               setManualStatus('idle');
+                              setPanelOpen(false);
                             })();
                           }}>
                             {label}
@@ -537,7 +539,7 @@ function WeatherBadge() {
             </label>
             <div className="weather-form-actions">
               <button type="submit" className="primary-button small-button">UPDATE LOCATION</button>
-              <button type="button" className="secondary-button small-button" onClick={loadCurrentLocationWeather}>USE MY LOCATION</button>
+              <button type="button" className="secondary-button small-button" onClick={() => loadCurrentLocationWeather(false)}>USE MY LOCATION</button>
             </div>
             {manualStatus === 'error' && <p className="account-error">We couldn’t find that location. Try another city or area.</p>}
           </form>
