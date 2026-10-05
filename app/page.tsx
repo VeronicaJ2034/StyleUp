@@ -577,12 +577,19 @@ function MatchesScreen({ items, onDelete }: { items: ClothingItem[]; onDelete: (
   return <>
     <div className="intro-row"><h2>What are we wearing?</h2></div>
     <div className="section-heading"><h4>YOUR CLOSET</h4><span>{String(items.length).padStart(2, '0')} PIECES</span></div>
-    <div className="item-grid">{items.map((item) => <ClothingCard item={item} onDelete={onDelete} key={`${item.name}-${item.imageUrl || item.color}`} />)}</div>
+    <div className="categorized-gallery">{categories.map((category) => {
+      const categoryItems = items.filter((item) => normalizeCategory(item.category) === normalizeCategory(category));
+      if (categoryItems.length === 0) return null;
+      return <section className="gallery-category" key={category}>
+        <div className="gallery-category-heading"><h4>{category}</h4><span>{categoryItems.length} {categoryItems.length === 1 ? 'PIECE' : 'PIECES'}</span></div>
+        <div className="item-grid">{categoryItems.map((item) => <ClothingCard item={item} onDelete={onDelete} key={`${item.name}-${item.imageUrl || item.color}`} />)}</div>
+      </section>;
+    })}</div>
   </>;
 }
 
 function ClothingCard({ item, onDelete }: { item: ClothingItem; onDelete: (item: ClothingItem) => Promise<void> }) {
-  return <article className="item-card"><div className={`item-image${item.imageUrl ? ' has-photo' : ''}`} style={{ backgroundColor: item.color, backgroundImage: item.imageUrl ? `url(${item.imageUrl})` : undefined }}><div className="item-shape" style={{ backgroundColor: item.tone }} /><button className="remove-item-button" type="button" onClick={() => void onDelete(item)} aria-label={`Delete ${item.name}`} title={`Delete ${item.name}`}>×</button></div><span>{item.category}</span><p>{item.name}</p></article>;
+  return <article className="item-card"><div className={`item-image${item.imageUrl ? ' has-photo' : ''}`} style={{ backgroundColor: item.color, backgroundImage: item.imageUrl ? `url(${item.imageUrl})` : undefined }}><div className="item-shape" style={{ backgroundColor: item.tone }} /><button className="remove-item-button" type="button" onClick={() => void onDelete(item)} aria-label={`Delete ${item.name}`} title={`Delete ${item.name}`}>×</button></div><p>{item.name}</p></article>;
 }
 
 function AddClothingScreen({ items, state, setState, onDelete, onItemSaved }: { items: ClothingItem[]; state: AddClothingState; setState: Dispatch<SetStateAction<AddClothingState>>; onDelete: (item: ClothingItem) => Promise<void>; onItemSaved: (item: ClothingItem) => void }) {
