@@ -73,7 +73,8 @@ button { font: inherit; }
 .screen-content > * { margin-left: 32px; margin-right: 32px; }
 h2 { margin: 17px 0 0; font-size: 24px; line-height: 1.1; }
 .add-page-heading { font-size: 21px; text-align: center; white-space: nowrap; }
-.intro-row { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; margin-bottom: 16px; }
+.intro-row { display: flex; justify-content: center; align-items: flex-end; gap: 12px; margin-bottom: 16px; }
+.intro-row h2 { white-space: nowrap; font-size: 20px; text-align: center; }
 .intro-row p, .page-subtitle { margin: 6px 0 0; color: #817a70; font-family: Arial, sans-serif; font-size: 13px; line-height: 1.4; }
 .page-subtitle { text-align: center; }
 .account-screen { padding-bottom: 28px; }
@@ -95,25 +96,15 @@ h2 { margin: 17px 0 0; font-size: 24px; line-height: 1.1; }
 .secondary-button { border: 1px solid #9ebdd4; border-radius: 8px; padding: 10px 12px; background: transparent; color: var(--blue); cursor: pointer; font: 700 9px Arial, sans-serif; letter-spacing: 1px; }
 .account-error { margin: 12px 0 0; color: #a34432; font: 12px/1.4 Arial, sans-serif; }
 .account-note { margin: 22px 0 0; color: var(--muted); font: 11px/1.45 Arial, sans-serif; }
-.sun-mark { flex: 0 0 43px; display: grid; place-items: center; width: 43px; height: 43px; border-radius: 50%; background: var(--soft-yellow); color: #9a7410; font-size: 24px; }
 .empty-state { display: grid; justify-items: center; margin-top: 96px; padding: 0 28px 40px; text-align: center; }
 .empty-mark { display: grid; place-items: center; width: 58px; height: 58px; margin-bottom: 18px; border-radius: 50%; background: var(--lavender); color: var(--brand); font: 300 32px/1 Arial, sans-serif; }
 .empty-state h2 { margin-top: 0; font-size: 25px; }
 .empty-state p { max-width: 245px; margin: 9px 0 0; color: var(--muted); font: 14px/1.5 Arial, sans-serif; }
-.match-card { min-height: 292px; padding: 17px; overflow: hidden; border: 1px solid #ffffff80; border-radius: 14px; box-shadow: 0 8px 20px #29466320; }
-.match-card-topline { display: flex; justify-content: space-between; color: #48657f; font: 700 9px Arial, sans-serif; letter-spacing: 1.2px; }
-.match-card h3 { max-width: 230px; margin: 18px 0 0; font-size: 31px; line-height: 1; }
-.match-card > p { margin: 4px 0 0; color: #48657f; font: 14px Arial, sans-serif; }
-.outfit-preview { position: relative; height: 92px; margin-top: 7px; }
-.preview-piece { position: absolute; left: 50%; transform: translateX(-50%); }
-.preview-top { top: 3px; width: 62px; height: 56px; border-radius: 35px 35px 0 0; background: #f1ece2; }
-.preview-bottom { bottom: 3px; width: 80px; height: 43px; transform: translateX(-50%) rotate(3deg); background: #72838a; }
-.preview-shoes { bottom: -1px; left: calc(50% + 72px); width: 48px; height: 14px; border-radius: 7px; background: #5b4234; }
 .primary-button { border: 0; border-radius: 8px; padding: 12px 15px; background: var(--deep); color: var(--paper); cursor: pointer; font: 700 10px Arial, sans-serif; letter-spacing: 1px; }
 .primary-button:hover, .primary-button:focus-visible { background: var(--blue); }
 .section-heading { display: flex; justify-content: space-between; align-items: center; margin-top: 29px; margin-bottom: 12px; }
 .section-heading h4, .category-heading { margin: 0; font-size: 10px; }
-.section-heading span { color: #b0a79a; font-size: 10px; }
+.section-heading span { color: #5f5a52; font-size: 10px; }
 .item-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 12px; padding-bottom: 24px; }
 .item-card { min-width: 0; }
 .item-image { position: relative; display: grid; place-items: center; height: 96px; border: 1px solid #ffffff80; border-radius: 12px; background-position: center; background-size: cover; box-shadow: 0 3px 9px #756b5c12; }
@@ -154,9 +145,6 @@ h2 { margin: 17px 0 0; font-size: 24px; line-height: 1.1; }
 .category-items .item-card p { font-size: 12px; }
 .phone-screen.dark-mode .app-header { border-color: #3b4652; }
 .phone-screen.dark-mode .weather-panel { border-color: #465361; }
-.phone-screen.dark-mode .match-card .primary-button { background: #496b84; color: #ffffff; }
-.phone-screen.dark-mode .match-card .primary-button:hover, .phone-screen.dark-mode .match-card .primary-button:focus-visible { background: #38586f; }
-.phone-screen.dark-mode .match-card h3 { color: #26354a; }
 .phone-screen.dark-mode .weather-form .primary-button { background: #496b84; color: #ffffff; }
 .phone-screen.dark-mode .weather-panel-snapshot { border-color: #394550; }
 .phone-screen.dark-mode .weather-label, .phone-screen.dark-mode .weather-mini-label { color: var(--blue); }

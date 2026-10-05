@@ -13,11 +13,6 @@ type AddClothingState = { isAnalyzing: boolean; error: string; analysis: Analysi
 
 const initialAddClothingState: AddClothingState = { isAnalyzing: false, error: '', analysis: null };
 
-const matchIdeas = [
-  { title: 'Soft structure', detail: 'A considered look from your closet', accent: '#FFF0B8' },
-  { title: 'Between seasons', detail: 'A fresh combination from what you own', accent: '#DCEAF5' },
-  { title: 'Quiet weekend', detail: 'Build a relaxed look from your closet', accent: '#E6E3F2' },
-];
 const categories = ['Tops', 'Pants', 'Jackets', 'Shoes'];
 const categoryTones = ['#8D86C0', '#7A91B2', '#A38BC0', '#8A9DB7'];
 const categoryMap: Record<Analysis['category'], string> = { shirt: 'TOPS', jacket: 'JACKETS', pants: 'PANTS', shoes: 'SHOES' };
@@ -43,7 +38,6 @@ function normalizeCategory(value: string) {
 export default function HomePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<Tab>('matches');
-  const [matchIndex, setMatchIndex] = useState(0);
   const [closetItems, setClosetItems] = useState<ClothingItem[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
   const [addClothingState, setAddClothingState] = useState<AddClothingState>(initialAddClothingState);
@@ -272,7 +266,7 @@ export default function HomePage() {
               </div>
             </header>
             <div className="screen-content">
-              {activeTab === 'matches' ? <MatchesScreen items={closetItems} userId={userId} matchIndex={matchIndex} onNext={() => setMatchIndex((current) => (current + 1) % matchIdeas.length)} onDelete={deleteClosetItem} /> : <AddClothingScreen items={closetItems} userId={userId} state={addClothingState} setState={setAddClothingState} onDelete={deleteClosetItem} onItemSaved={async (item) => {
+              {activeTab === 'matches' ? <MatchesScreen items={closetItems} onDelete={deleteClosetItem} /> : <AddClothingScreen items={closetItems} state={addClothingState} setState={setAddClothingState} onDelete={deleteClosetItem} onItemSaved={async (item) => {
                 const savedItem = { ...item, id: item.id ?? makeId() };
                 if (!supabase) {
                   setClosetItems((current) => [savedItem, ...current]);
@@ -577,18 +571,11 @@ function LoadingScreen() {
   return <div className="loading-screen"><img className="loading-logo" src="/StyleUpLogo.png" alt="StyleUp" /><p>A better way to get dressed.</p><div className="loading-line" /></div>;
 }
 
-function MatchesScreen({ items, userId, matchIndex, onNext, onDelete }: { items: ClothingItem[]; userId: string | null; matchIndex: number; onNext: () => void; onDelete: (item: ClothingItem) => Promise<void> }) {
-  if (items.length === 0) return <div className="empty-state"><div className="empty-mark">+</div><h2>Your closet is waiting</h2><p>Upload a clothing photo to start making matches from pieces you own.</p><p className="debug-session">Signed in: {userId ? 'yes' : 'no'} {userId ? `• user ${userId.slice(0, 8)}` : ''} • closet rows: {items.length}</p></div>;
+function MatchesScreen({ items, onDelete }: { items: ClothingItem[]; onDelete: (item: ClothingItem) => Promise<void> }) {
+  if (items.length === 0) return <div className="empty-state"><div className="empty-mark">+</div><h2>Your closet is waiting</h2><p>Upload a clothing photo to start making matches from pieces you own.</p></div>;
 
-  const match = matchIdeas[matchIndex];
   return <>
-    <div className="intro-row"><div><h2>What are we wearing?</h2><p>A few ideas, styled from what you own.</p></div><div className="sun-mark" aria-hidden="true">☼</div></div>
-    <article className="match-card" style={{ backgroundColor: match.accent }}>
-      <div className="match-card-topline"><span>STYLE NOTE 0{matchIndex + 1}</span><span>SPRING / 18°</span></div>
-      <h3>{match.title}</h3><p>{match.detail}</p>
-      <div className="outfit-preview" aria-hidden="true"><div className="preview-piece preview-top" /><div className="preview-piece preview-bottom" /><div className="preview-piece preview-shoes" /></div>
-      <button className="primary-button" type="button" onClick={onNext}>SHOW ANOTHER LOOK <span aria-hidden="true">→</span></button>
-    </article>
+    <div className="intro-row"><h2>What are we wearing?</h2></div>
     <div className="section-heading"><h4>YOUR CLOSET</h4><span>{String(items.length).padStart(2, '0')} PIECES</span></div>
     <div className="item-grid">{items.map((item) => <ClothingCard item={item} onDelete={onDelete} key={`${item.name}-${item.imageUrl || item.color}`} />)}</div>
   </>;
@@ -598,7 +585,7 @@ function ClothingCard({ item, onDelete }: { item: ClothingItem; onDelete: (item:
   return <article className="item-card"><div className={`item-image${item.imageUrl ? ' has-photo' : ''}`} style={{ backgroundColor: item.color, backgroundImage: item.imageUrl ? `url(${item.imageUrl})` : undefined }}><div className="item-shape" style={{ backgroundColor: item.tone }} /><button className="remove-item-button" type="button" onClick={() => void onDelete(item)} aria-label={`Delete ${item.name}`} title={`Delete ${item.name}`}>×</button></div><span>{item.category}</span><p>{item.name}</p></article>;
 }
 
-function AddClothingScreen({ items, userId, state, setState, onDelete, onItemSaved }: { items: ClothingItem[]; userId: string | null; state: AddClothingState; setState: Dispatch<SetStateAction<AddClothingState>>; onDelete: (item: ClothingItem) => Promise<void>; onItemSaved: (item: ClothingItem) => void }) {
+function AddClothingScreen({ items, state, setState, onDelete, onItemSaved }: { items: ClothingItem[]; state: AddClothingState; setState: Dispatch<SetStateAction<AddClothingState>>; onDelete: (item: ClothingItem) => Promise<void>; onItemSaved: (item: ClothingItem) => void }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [error, setError] = useState('');
