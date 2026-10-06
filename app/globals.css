@@ -131,6 +131,15 @@ h2 { margin: 17px 0 0; font-size: 24px; line-height: 1.1; }
 .item-shape { width: 61px; height: 75px; border-radius: 25px 25px 0 0; opacity: .85; }
 .item-card span { display: block; margin-top: 9px; font-size: 9px; }
 .item-card p { margin: 3px 0 0; font: 14px Arial, sans-serif; }
+.item-name-button { display: block; width: 100%; margin-top: 3px; border: 0; border-radius: 3px; padding: 2px 0; background: transparent; color: var(--ink); cursor: pointer; font: 14px Arial, sans-serif; text-align: left; overflow-wrap: anywhere; }
+.item-name-button:hover { text-decoration: underline; }
+.item-name-button:focus-visible, .item-name-edit input:focus-visible, .item-name-edit button:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+.item-name-edit { display: grid; gap: 5px; margin-top: 5px; }
+.item-name-edit input { width: 100%; min-width: 0; border: 1px solid #cbd5e1; border-radius: 5px; padding: 6px; background: var(--paper); color: var(--ink); font: 12px Arial, sans-serif; }
+.item-name-edit > div { display: flex; gap: 5px; }
+.item-name-edit button { flex: 1; border: 1px solid #cbd5e1; border-radius: 5px; padding: 5px 3px; background: var(--lavender); color: var(--deep); cursor: pointer; font: 11px Arial, sans-serif; }
+.item-name-edit button:disabled { cursor: wait; opacity: .65; }
+.item-name-error { grid-column: 1 / -1; margin: 0; color: #a34432; font: 10px/1.3 Arial, sans-serif; overflow-wrap: anywhere; }
 .tab-bar { position: relative; flex: 0 0 72px; display: flex; gap: 6px; padding: 10px 16px 14px; border-radius: 0 0 39px 39px; background: var(--deep); box-shadow: 0 -5px 14px #29466324; }
 .tab-button { flex: 1; min-width: 0; border: 0; border-radius: 10px; padding: 8px 4px; background: #365f82; color: #ffffff; cursor: pointer; }
 .tab-button.active { background: var(--blue); color: #ffffff; box-shadow: 0 3px 8px #29466340; }
@@ -162,6 +171,9 @@ h2 { margin: 17px 0 0; font-size: 24px; line-height: 1.1; }
 .phone-screen.dark-mode .app-header { border-color: #3b4652; }
 .phone-screen.dark-mode .weather-panel { border-color: #465361; }
 .phone-screen.dark-mode .weather-form .primary-button { background: #496b84; color: #ffffff; }
+.phone-screen.dark-mode .outfit-generate-button { background: #496b84; color: #ffffff; }
+.phone-screen.dark-mode .item-name-edit button { border-color: #647789; background: #34414c; color: #f1f5f9; }
+.phone-screen.dark-mode .item-name-edit button:hover:not(:disabled) { background: #496b84; }
 .phone-screen.dark-mode .weather-panel-snapshot { border-color: #394550; }
 .phone-screen.dark-mode .weather-label, .phone-screen.dark-mode .weather-mini-label { color: var(--blue); }
 .phone-screen.dark-mode .weather-form input { border-color: #53616d; background: #202a34; color: var(--ink); }
@@ -176,6 +188,8 @@ h2 { margin: 17px 0 0; font-size: 24px; line-height: 1.1; }
 .phone-screen.dark-mode .section-heading span, .phone-screen.dark-mode .category-heading-row > span, .phone-screen.dark-mode .category-row > span:nth-child(2) small { color: var(--muted); }
 .phone-screen.dark-mode .category-section { border-color: #394550; }
 .phone-screen.dark-mode .category-row { color: var(--ink); }
+.phone-screen.dark-mode .gallery-category-heading span { color: var(--muted); }
+.phone-screen.dark-mode .closet-piece-count { color: var(--muted); }
 .phone-screen.dark-mode .analysis-result { border-color: #435463; background: #25323d; }
 .phone-screen.dark-mode .outfit-recommendation { border-color: #435463; background: #25323d; }
 .phone-screen.dark-mode .outfit-recommendation > p { color: var(--muted); }
