@@ -44,8 +44,16 @@ function normalizeCategory(value: string) {
 function summarizeOutfitError(error: unknown) {
   const message = error instanceof Error ? error.message : String(error);
   const details = message.toLowerCase();
-  if (details.includes('quota') || details.includes('resource_exhausted') || details.includes('rate limit')) {
-    return 'Outfit recommendations are temporarily unavailable because the AI quota has been reached.';
+  if (
+    details.includes('quota')
+    || details.includes('resource_exhausted')
+    || details.includes('rate limit')
+    || details.includes('high demand')
+    || details.includes('temporarily unavailable')
+    || details.includes('service unavailable')
+    || details.includes('503')
+  ) {
+    return 'The AI service is temporarily busy or unavailable. Please try creating outfit recommendations again in a moment.';
   }
   if (details.includes('network') || details.includes('timeout') || details.includes('connection') || details.includes('unusable')) {
     return 'The outfit service could not be reached. Please try again later.';
