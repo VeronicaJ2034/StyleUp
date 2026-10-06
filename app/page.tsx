@@ -4,20 +4,16 @@ import { ChangeEvent, Dispatch, FormEvent, SetStateAction, useEffect, useRef, us
 import ProfileAccount from '../components/ProfileAccount';
 import { supabase } from '../lib/supabase';
 
-type Tab = 'matches' | 'add';
+type Tab = 'matches' | 'outfits' | 'add';
 type ClothingItem = { id?: string; name: string; category: string; color: string; tone: string; imageUrl?: string };
 type Analysis = { category: string; color: string; secondaryColor: string | null; pattern: string; style: string; formality: string };
+type OutfitRecommendation = { title: string; description: string; itemIds: string[] };
 type WeatherState = { temperature: number; description: string; rainChance: number; humidity: number; windSpeed: number; locationName: string; latitude: number; longitude: number };
 type GeoSearchResult = { name: string; country?: string; admin1?: string; latitude: number; longitude: number };
 type AddClothingState = { isAnalyzing: boolean; error: string; analysis: Analysis | null };
 
 const initialAddClothingState: AddClothingState = { isAnalyzing: false, error: '', analysis: null };
 
-const matchIdeas = [
-  { title: 'Soft structure', detail: 'A considered look from your closet', accent: '#FFF0B8' },
-  { title: 'Between seasons', detail: 'A fresh combination from what you own', accent: '#DCEAF5' },
-  { title: 'Quiet weekend', detail: 'Build a relaxed look from your closet', accent: '#E6E3F2' },
-];
 const categories = ['Tops', 'Pants', 'Jackets', 'Shoes'];
 const categoryTones = ['#8D86C0', '#7A91B2', '#A38BC0', '#8A9DB7'];
 const categoryMap: Record<Analysis['category'], string> = { shirt: 'TOPS', jacket: 'JACKETS', pants: 'PANTS', shoes: 'SHOES' };
@@ -27,6 +23,11 @@ function makeId() {
     return crypto.randomUUID();
   }
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+async function getFileHash(file: File) {
+  const digest = await crypto.subtle.digest('SHA-256', await file.arrayBuffer());
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 
 function getClosetPhotoPath(imageUrl?: string) {
@@ -40,13 +41,35 @@ function normalizeCategory(value: string) {
   return value.trim().toUpperCase();
 }
 
+function summarizeOutfitError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  const details = message.toLowerCase();
+  if (
+    details.includes('quota')
+    || details.includes('resource_exhausted')
+    || details.includes('rate limit')
+    || details.includes('high demand')
+    || details.includes('temporarily unavailable')
+    || details.includes('service unavailable')
+    || details.includes('503')
+  ) {
+    return 'The AI service is temporarily busy or unavailable. Please try creating outfit recommendations again in a moment.';
+  }
+  if (details.includes('network') || details.includes('timeout') || details.includes('connection') || details.includes('unusable')) {
+    return 'The outfit service could not be reached. Please try again later.';
+  }
+  return 'We could not create outfit recommendations. Please try again later.';
+}
+
 export default function HomePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<Tab>('matches');
-  const [matchIndex, setMatchIndex] = useState(0);
   const [closetItems, setClosetItems] = useState<ClothingItem[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
   const [addClothingState, setAddClothingState] = useState<AddClothingState>(initialAddClothingState);
+  const [outfitRecommendations, setOutfitRecommendations] = useState<OutfitRecommendation[]>([]);
+  const [isGeneratingOutfits, setIsGeneratingOutfits] = useState(false);
+  const [outfitError, setOutfitError] = useState('');
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [hasLoadedTheme, setHasLoadedTheme] = useState(false);
 
@@ -194,6 +217,42 @@ export default function HomePage() {
       return;
     }
 
+    if (item.imageUrl) {
+      const { data: existingItems, error: duplicateCheckError } = await client
+        .from('closet_items')
+        .select('id, image_url')
+        .eq('user_id', currentUserId);
+
+      if (duplicateCheckError) {
+        throw new Error(`Unable to check your closet before saving: ${duplicateCheckError.message}`);
+      } else {
+        const itemPhotoPath = getClosetPhotoPath(item.imageUrl);
+        const existingItem = itemPhotoPath
+          ? existingItems.find((existing) => getClosetPhotoPath(existing.image_url) === itemPhotoPath)
+          : undefined;
+        if (existingItem) {
+          const { error: updateError } = await client
+            .from('closet_items')
+            .update({
+              name: item.name,
+              category: normalizeCategory(item.category),
+              color: item.color,
+              tone: item.tone,
+              image_url: item.imageUrl,
+            })
+            .eq('id', existingItem.id)
+            .eq('user_id', currentUserId);
+
+          if (updateError) {
+            throw new Error(`Unable to update this closet item: ${updateError.message}`);
+          }
+
+          await refreshCloset(currentUserId);
+          return;
+        }
+      }
+    }
+
     const record = {
       id: item.id ?? makeId(),
       user_id: currentUserId,
@@ -210,15 +269,18 @@ export default function HomePage() {
 
     const { error } = await client.from('closet_items').insert(record).select();
     if (error) {
-      console.error('Error saving closet item:', error.message);
-      return;
+      throw new Error(`Unable to save this closet item: ${error.message}`);
     }
 
-    const { data } = await client
+    const { data, error: refreshError } = await client
       .from('closet_items')
       .select('*')
       .eq('user_id', currentUserId)
       .order('created_at', { ascending: false });
+
+    if (refreshError) {
+      throw new Error(`The item was saved, but the closet could not be refreshed: ${refreshError.message}`);
+    }
 
     setClosetItems((data ?? []).map((entry) => ({
       id: entry.id,
@@ -247,6 +309,36 @@ export default function HomePage() {
     }
 
     setClosetItems((current) => current.filter((currentItem) => item.id ? currentItem.id !== item.id : currentItem !== item));
+    setOutfitRecommendations([]);
+  }
+
+  async function generateOutfits() {
+    if (closetItems.length === 0) {
+      setOutfitError('Add clothing to your closet before creating outfits.');
+      return;
+    }
+
+    setIsGeneratingOutfits(true);
+    setOutfitError('');
+    setOutfitRecommendations([]);
+
+    try {
+      const response = await fetch('/api/recommend-outfits', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          items: closetItems.filter((item): item is ClothingItem & { id: string; imageUrl: string } => Boolean(item.id && item.imageUrl)),
+        }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Unable to create outfit recommendations.');
+      setOutfitRecommendations(result.outfits as OutfitRecommendation[]);
+    } catch (error) {
+      console.error('Outfit recommendation request failed:', error);
+      setOutfitError(summarizeOutfitError(error));
+    } finally {
+      setIsGeneratingOutfits(false);
+    }
   }
 
   useEffect(() => {
@@ -272,7 +364,7 @@ export default function HomePage() {
               </div>
             </header>
             <div className="screen-content">
-              {activeTab === 'matches' ? <MatchesScreen items={closetItems} userId={userId} matchIndex={matchIndex} onNext={() => setMatchIndex((current) => (current + 1) % matchIdeas.length)} onDelete={deleteClosetItem} /> : <AddClothingScreen items={closetItems} userId={userId} state={addClothingState} setState={setAddClothingState} onDelete={deleteClosetItem} onItemSaved={async (item) => {
+              {activeTab === 'matches' ? <MatchesScreen items={closetItems} onDelete={deleteClosetItem} /> : activeTab === 'outfits' ? <OutfitsScreen items={closetItems} recommendations={outfitRecommendations} isGenerating={isGeneratingOutfits} error={outfitError} onGenerate={generateOutfits} /> : <AddClothingScreen items={closetItems} state={addClothingState} setState={setAddClothingState} onDelete={deleteClosetItem} onItemSaved={async (item) => {
                 const savedItem = { ...item, id: item.id ?? makeId() };
                 if (!supabase) {
                   setClosetItems((current) => [savedItem, ...current]);
@@ -286,10 +378,13 @@ export default function HomePage() {
                 }
 
                 await saveClosetItem(savedItem);
+                setOutfitRecommendations([]);
+                setOutfitError('');
               }} />}
             </div>
             <nav className="tab-bar" aria-label="Closet sections">
-              <TabButton label="MAKE A MATCH" symbol="+" active={activeTab === 'matches'} onClick={() => setActiveTab('matches')} />
+              <TabButton label="CLOSET" symbol="+" active={activeTab === 'matches'} onClick={() => setActiveTab('matches')} />
+              <TabButton label="OUTFITS" symbol="✦" active={activeTab === 'outfits'} onClick={() => setActiveTab('outfits')} />
               <TabButton label="ADD CLOTHING" symbol="↑" active={activeTab === 'add'} onClick={() => setActiveTab('add')} />
             </nav>
           </>}
@@ -577,28 +672,55 @@ function LoadingScreen() {
   return <div className="loading-screen"><img className="loading-logo" src="/StyleUpLogo.png" alt="StyleUp" /><p>A better way to get dressed.</p><div className="loading-line" /></div>;
 }
 
-function MatchesScreen({ items, userId, matchIndex, onNext, onDelete }: { items: ClothingItem[]; userId: string | null; matchIndex: number; onNext: () => void; onDelete: (item: ClothingItem) => Promise<void> }) {
-  if (items.length === 0) return <div className="empty-state"><div className="empty-mark">+</div><h2>Your closet is waiting</h2><p>Upload a clothing photo to start making matches from pieces you own.</p><p className="debug-session">Signed in: {userId ? 'yes' : 'no'} {userId ? `• user ${userId.slice(0, 8)}` : ''} • closet rows: {items.length}</p></div>;
+function MatchesScreen({ items, onDelete }: { items: ClothingItem[]; onDelete: (item: ClothingItem) => Promise<void> }) {
+  if (items.length === 0) return <div className="empty-state"><div className="empty-mark">+</div><h2>Your closet is waiting</h2><p>Upload a clothing photo to start making matches from pieces you own.</p></div>;
 
-  const match = matchIdeas[matchIndex];
+  const galleryCategories = [...categories, ...Array.from(new Set(
+    items
+      .map((item) => item.category.trim())
+      .filter((category) => category && !categories.some((knownCategory) => normalizeCategory(knownCategory) === normalizeCategory(category))),
+  ))];
+
   return <>
-    <div className="intro-row"><div><h2>What are we wearing?</h2><p>A few ideas, styled from what you own.</p></div><div className="sun-mark" aria-hidden="true">☼</div></div>
-    <article className="match-card" style={{ backgroundColor: match.accent }}>
-      <div className="match-card-topline"><span>STYLE NOTE 0{matchIndex + 1}</span><span>SPRING / 18°</span></div>
-      <h3>{match.title}</h3><p>{match.detail}</p>
-      <div className="outfit-preview" aria-hidden="true"><div className="preview-piece preview-top" /><div className="preview-piece preview-bottom" /><div className="preview-piece preview-shoes" /></div>
-      <button className="primary-button" type="button" onClick={onNext}>SHOW ANOTHER LOOK <span aria-hidden="true">→</span></button>
-    </article>
-    <div className="section-heading"><h4>YOUR CLOSET</h4><span>{String(items.length).padStart(2, '0')} PIECES</span></div>
-    <div className="item-grid">{items.map((item) => <ClothingCard item={item} onDelete={onDelete} key={`${item.name}-${item.imageUrl || item.color}`} />)}</div>
+    <div className="intro-row"><h2>Your closet</h2><span className="closet-piece-count">{String(items.length).padStart(2, '0')} PIECES</span></div>
+    <div className="categorized-gallery">{galleryCategories.map((category) => {
+      const categoryItems = items.filter((item) => normalizeCategory(item.category) === normalizeCategory(category));
+      if (categoryItems.length === 0) return null;
+      return <section className="gallery-category" key={category}>
+        <div className="gallery-category-heading"><h4>{category}</h4><span>{categoryItems.length} {categoryItems.length === 1 ? 'PIECE' : 'PIECES'}</span></div>
+        <div className="item-grid">{categoryItems.map((item) => <ClothingCard item={item} onDelete={onDelete} key={`${item.name}-${item.imageUrl || item.color}`} />)}</div>
+      </section>;
+    })}</div>
   </>;
 }
 
-function ClothingCard({ item, onDelete }: { item: ClothingItem; onDelete: (item: ClothingItem) => Promise<void> }) {
-  return <article className="item-card"><div className={`item-image${item.imageUrl ? ' has-photo' : ''}`} style={{ backgroundColor: item.color, backgroundImage: item.imageUrl ? `url(${item.imageUrl})` : undefined }}><div className="item-shape" style={{ backgroundColor: item.tone }} /><button className="remove-item-button" type="button" onClick={() => void onDelete(item)} aria-label={`Delete ${item.name}`} title={`Delete ${item.name}`}>×</button></div><span>{item.category}</span><p>{item.name}</p></article>;
+function OutfitsScreen({ items, recommendations, isGenerating, error, onGenerate }: { items: ClothingItem[]; recommendations: OutfitRecommendation[]; isGenerating: boolean; error: string; onGenerate: () => Promise<void> }) {
+  const itemById = new Map(items.map((item) => [item.id, item]));
+
+  return <>
+    <h2 className="outfit-page-heading">Outfit recommendations</h2>
+    <p className="page-subtitle">Built from the clothes currently in your closet.</p>
+    <button className="primary-button outfit-generate-button" type="button" onClick={() => void onGenerate()} disabled={isGenerating || items.length === 0}>
+      {isGenerating ? 'CREATING OUTFITS…' : recommendations.length ? 'CREATE NEW OUTFITS' : 'CREATE OUTFITS'}
+    </button>
+    {error && <p className="upload-error outfit-error" role="alert">{error}</p>}
+    {!error && !isGenerating && recommendations.length === 0 && <p className="outfit-empty">Create recommendations to see complete looks using your current closet images.</p>}
+    <div className="outfit-list">{recommendations.map((outfit) => {
+      const outfitItems = outfit.itemIds.map((id) => itemById.get(id)).filter((item): item is ClothingItem => Boolean(item));
+      return <article className="outfit-recommendation" key={`${outfit.title}-${outfit.itemIds.join('-')}`}>
+        <h3>{outfit.title}</h3>
+        <p>{outfit.description}</p>
+        <div className="outfit-items">{outfitItems.map((item) => <ClothingCard item={item} key={item.id} />)}</div>
+      </article>;
+    })}</div>
+  </>;
 }
 
-function AddClothingScreen({ items, userId, state, setState, onDelete, onItemSaved }: { items: ClothingItem[]; userId: string | null; state: AddClothingState; setState: Dispatch<SetStateAction<AddClothingState>>; onDelete: (item: ClothingItem) => Promise<void>; onItemSaved: (item: ClothingItem) => void }) {
+function ClothingCard({ item, onDelete }: { item: ClothingItem; onDelete?: (item: ClothingItem) => Promise<void> }) {
+  return <article className="item-card"><div className={`item-image${item.imageUrl ? ' has-photo' : ''}`} style={{ backgroundColor: item.color, backgroundImage: item.imageUrl ? `url(${item.imageUrl})` : undefined }}><div className="item-shape" style={{ backgroundColor: item.tone }} />{onDelete && <button className="remove-item-button" type="button" onClick={() => void onDelete(item)} aria-label={`Delete ${item.name}`} title={`Delete ${item.name}`}>×</button>}</div><p>{item.name}</p></article>;
+}
+
+function AddClothingScreen({ items, state, setState, onDelete, onItemSaved }: { items: ClothingItem[]; state: AddClothingState; setState: Dispatch<SetStateAction<AddClothingState>>; onDelete: (item: ClothingItem) => Promise<void>; onItemSaved: (item: ClothingItem) => Promise<void> }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [error, setError] = useState('');
@@ -630,7 +752,8 @@ function AddClothingScreen({ items, userId, state, setState, onDelete, onItemSav
         const { data: userData } = await supabase.auth.getUser();
         const user = userData.user;
         if (user) {
-          const fileName = `${user.id}/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9-_\.]/g, '-')}`;
+          const fileHash = await getFileHash(file);
+          const fileName = `${user.id}/${fileHash}`;
           const { error: uploadError } = await supabase.storage
             .from('closet-photos')
             .upload(fileName, file, { upsert: true, cacheControl: '3600', contentType: file.type });
@@ -638,7 +761,7 @@ function AddClothingScreen({ items, userId, state, setState, onDelete, onItemSav
           if (uploadError) throw new Error(uploadError.message);
 
           const { data } = supabase.storage.from('closet-photos').getPublicUrl(fileName);
-          imageUrl = data.publicUrl;
+          imageUrl = `${data.publicUrl}?v=${Date.now()}`;
         } else {
           imageUrl = await readImage(file);
         }
@@ -647,7 +770,7 @@ function AddClothingScreen({ items, userId, state, setState, onDelete, onItemSav
       }
 
       setState((current) => ({ ...current, analysis: result, isAnalyzing: false, error: '' }));
-      onItemSaved({ name: `${result.color} ${result.category}`, category: normalizeCategory(categoryMap[result.category as Analysis['category']]), color: '#E8E0D0', tone: '#9C805A', imageUrl });
+      await onItemSaved({ name: `${result.color} ${result.category}`, category: normalizeCategory(categoryMap[result.category as Analysis['category']]), color: '#E8E0D0', tone: '#9C805A', imageUrl });
     } catch (uploadError) {
       setState((current) => ({ ...current, error: uploadError instanceof Error ? uploadError.message : 'Unable to analyze that photo.', isAnalyzing: false }));
     } finally {

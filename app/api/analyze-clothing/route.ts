@@ -14,6 +14,74 @@ const clothingSchema = z.object({
   formality: z.enum(["casual", "smart-casual", "formal"]),
 });
 
+function isTransientGeminiError(error: unknown) {
+  if (!(error instanceof Error)) return false;
+  const details = `${error.name} ${error.message}`.toLowerCase();
+  return details.includes("apiconnectionerror")
+    || details.includes("unexpectedclienterror")
+    || details.includes("network")
+    || details.includes("timeout")
+    || details.includes("unusable");
+}
+
+async function analyzeWithRetry(base64Image: string, mimeType: string) {
+  const maxAttempts = 3;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      return await ai.models.generateContent({
+        model: "gemini-3.8-flash",
+        contents: [
+          {
+            role: "user",
+            parts: [
+              {
+                text: `
+Analyze this clothing item for a digital wardrobe.
+
+Identify the item using ONLY these categories:
+- shirt
+- jacket
+- pants
+- shoes
+
+Classify trousers, jeans, leggings, shorts, and any other lower-body garment as "pants".
+Use "shoes" only for footwear such as sneakers, boots, sandals, or dress shoes.
+Do not classify a lower-body garment as "shoes".
+
+Also identify:
+- primary color
+- secondary color, if there is one
+- pattern
+- overall style
+- formality
+
+Return only the requested structured information.
+                `,
+              },
+              {
+                inlineData: {
+                  data: base64Image,
+                  mimeType,
+                },
+              },
+            ],
+          },
+        ],
+        config: {
+          responseMimeType: "application/json",
+          responseJsonSchema: z.toJSONSchema(clothingSchema),
+        },
+      });
+    } catch (error) {
+      if (!isTransientGeminiError(error) || attempt === maxAttempts) throw error;
+      await new Promise((resolve) => setTimeout(resolve, attempt * 500));
+    }
+  }
+
+  throw new Error("Gemini analysis did not complete.");
+}
+
 export async function POST(request: Request) {
   try {
     const formData = await request.formData();
@@ -29,50 +97,13 @@ export async function POST(request: Request) {
       const imageBuffer = await image.arrayBuffer();
     const base64Image = Buffer.from(imageBuffer).toString("base64");
 
-    const interaction = await ai.interactions.create({
-      model: "gemini-3.8-flash",
-      input: [
-        {
-          type: "text",
-          text: `
-Analyze this clothing item for a digital wardrobe.
+    const interaction = await analyzeWithRetry(base64Image, image.type || "image/jpeg");
 
-Identify the item using ONLY these categories:
-- shirt
-- jacket
-- pants
-- shoes
+    if (!interaction.text) {
+      throw new Error("Gemini returned no text output.");
+    }
 
-Also identify:
-- primary color
-- secondary color, if there is one
-- pattern
-- overall style
-- formality
-
-Return only the requested structured information.
-          `,
-        },
-        {
-  type: "image",
-  data: base64Image,
-  mime_type: image.type || "image/jpeg",
-},
-      ],
-      response_format: {
-        type: "text",
-        mime_type: "application/json",
-        schema: z.toJSONSchema(clothingSchema),
-      },
-    });
-
-    if (!interaction.output_text) {
-  throw new Error("Gemini returned no text output.");
-}
-
-const result = clothingSchema.parse(
-  JSON.parse(interaction.output_text)
-);
+    const result = clothingSchema.parse(JSON.parse(interaction.text));
 
     return Response.json(result);
   } catch (error) {
