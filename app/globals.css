@@ -11,7 +11,7 @@ button { font: inherit; }
 .screen-content { flex: 1 1 auto; min-height: 0; height: auto; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; padding-bottom: 8px; }
 .screen-content::-webkit-scrollbar { display: none; }
 .app-header { display: flex; justify-content: space-between; align-items: flex-start; min-height: 88px; padding: 36px 28px 10px; border-bottom: 1px solid #d7d3ea; border-radius: 39px 39px 0 0; background: var(--lavender); }
-.brand-lockup { display: grid; transform: translate(-8px, -12px); }
+.brand-lockup { display: grid; margin: -12px 0 0 -8px; }
 .header-actions { display: flex; align-items: flex-start; gap: 12px; }
 .theme-toggle { display: grid; flex: 0 0 34px; place-items: center; width: 34px; height: 34px; margin-top: 8px; border: 1px solid #e2d394; border-radius: 50%; padding: 0; background: #fff7d7; color: #765d14; cursor: pointer; font: 18px/1 Arial, sans-serif; }
 .theme-toggle span { transform: translateY(1px); }
