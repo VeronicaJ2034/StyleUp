@@ -1,11 +1,11 @@
 'use client';
 
-import { ChangeEvent, Dispatch, FormEvent, SetStateAction, useEffect, useRef, useState } from 'react';
+import { ChangeEvent, Dispatch, FormEvent, SetStateAction, useEffect, useId, useRef, useState } from 'react';
 import ProfileAccount from '../components/ProfileAccount';
 import { supabase } from '../lib/supabase';
 
 type Tab = 'matches' | 'outfits' | 'add';
-type ClothingItem = { id?: string; name: string; category: string; color: string; tone: string; imageUrl?: string };
+type ClothingItem = { id?: string; recordId?: string; name: string; category: string; color: string; tone: string; imageUrl?: string };
 type Analysis = { category: string; color: string; secondaryColor: string | null; pattern: string; style: string; formality: string };
 type OutfitRecommendation = { title: string; description: string; itemIds: string[] };
 type WeatherState = { temperature: number; description: string; rainChance: number; humidity: number; windSpeed: number; locationName: string; latitude: number; longitude: number };
@@ -100,6 +100,7 @@ export default function HomePage() {
 
     const mappedRows = (data ?? []).map((item) => ({
       id: item.id,
+      recordId: item.id,
       name: item.name,
       category: normalizeCategory(String(item.category ?? '')),
       color: item.color,
@@ -284,6 +285,7 @@ export default function HomePage() {
 
     setClosetItems((data ?? []).map((entry) => ({
       id: entry.id,
+      recordId: entry.id,
       name: entry.name,
       category: normalizeCategory(String(entry.category ?? '')),
       color: entry.color,
@@ -310,6 +312,42 @@ export default function HomePage() {
 
     setClosetItems((current) => current.filter((currentItem) => item.id ? currentItem.id !== item.id : currentItem !== item));
     setOutfitRecommendations([]);
+  }
+
+  async function renameClosetItem(item: ClothingItem, name: string) {
+    const client = supabase;
+    let recordId = item.recordId;
+
+    if (client && userId) {
+      if (recordId) {
+        const { data, error } = await client
+          .from('closet_items')
+          .update({ name })
+          .eq('id', recordId)
+          .eq('user_id', userId)
+          .select('id');
+        if (error) throw new Error(`Unable to rename this closet item: ${error.message}`);
+        if (!data?.length) throw new Error('This closet item could not be found. Refresh your closet and try again.');
+      } else {
+        recordId = makeId();
+        const { error } = await client.from('closet_items').insert({
+          id: recordId,
+          user_id: userId,
+          name,
+          category: normalizeCategory(item.category),
+          color: item.color,
+          tone: item.tone,
+          image_url: item.imageUrl ?? null,
+        });
+        if (error) throw new Error(`Unable to save this closet item name: ${error.message}`);
+      }
+    }
+
+    setClosetItems((current) => current.map((currentItem) => (
+      (item.id ? currentItem.id === item.id : currentItem === item)
+        ? { ...currentItem, recordId: recordId ?? currentItem.recordId, name }
+        : currentItem
+    )));
   }
 
   async function generateOutfits() {
@@ -364,7 +402,7 @@ export default function HomePage() {
               </div>
             </header>
             <div className="screen-content">
-              {activeTab === 'matches' ? <MatchesScreen items={closetItems} onDelete={deleteClosetItem} /> : activeTab === 'outfits' ? <OutfitsScreen items={closetItems} recommendations={outfitRecommendations} isGenerating={isGeneratingOutfits} error={outfitError} onGenerate={generateOutfits} /> : <AddClothingScreen items={closetItems} state={addClothingState} setState={setAddClothingState} onDelete={deleteClosetItem} onItemSaved={async (item) => {
+              {activeTab === 'matches' ? <MatchesScreen items={closetItems} onDelete={deleteClosetItem} onRename={renameClosetItem} /> : activeTab === 'outfits' ? <OutfitsScreen items={closetItems} recommendations={outfitRecommendations} isGenerating={isGeneratingOutfits} error={outfitError} onGenerate={generateOutfits} onRename={renameClosetItem} /> : <AddClothingScreen items={closetItems} state={addClothingState} setState={setAddClothingState} onDelete={deleteClosetItem} onRename={renameClosetItem} onItemSaved={async (item) => {
                 const savedItem = { ...item, id: item.id ?? makeId() };
                 if (!supabase) {
                   setClosetItems((current) => [savedItem, ...current]);
@@ -672,7 +710,7 @@ function LoadingScreen() {
   return <div className="loading-screen"><img className="loading-logo" src="/StyleUpLogo.png" alt="StyleUp" /><p>A better way to get dressed.</p><div className="loading-line" /></div>;
 }
 
-function MatchesScreen({ items, onDelete }: { items: ClothingItem[]; onDelete: (item: ClothingItem) => Promise<void> }) {
+function MatchesScreen({ items, onDelete, onRename }: { items: ClothingItem[]; onDelete: (item: ClothingItem) => Promise<void>; onRename: (item: ClothingItem, name: string) => Promise<void> }) {
   if (items.length === 0) return <div className="empty-state"><div className="empty-mark">+</div><h2>Your closet is waiting</h2><p>Upload a clothing photo to start making matches from pieces you own.</p></div>;
 
   const galleryCategories = [...categories, ...Array.from(new Set(
@@ -688,13 +726,13 @@ function MatchesScreen({ items, onDelete }: { items: ClothingItem[]; onDelete: (
       if (categoryItems.length === 0) return null;
       return <section className="gallery-category" key={category}>
         <div className="gallery-category-heading"><h4>{category}</h4><span>{categoryItems.length} {categoryItems.length === 1 ? 'PIECE' : 'PIECES'}</span></div>
-        <div className="item-grid">{categoryItems.map((item) => <ClothingCard item={item} onDelete={onDelete} key={`${item.name}-${item.imageUrl || item.color}`} />)}</div>
+        <div className="item-grid">{categoryItems.map((item) => <ClothingCard item={item} onDelete={onDelete} onRename={onRename} key={item.id ?? item.imageUrl ?? item.name} />)}</div>
       </section>;
     })}</div>
   </>;
 }
 
-function OutfitsScreen({ items, recommendations, isGenerating, error, onGenerate }: { items: ClothingItem[]; recommendations: OutfitRecommendation[]; isGenerating: boolean; error: string; onGenerate: () => Promise<void> }) {
+function OutfitsScreen({ items, recommendations, isGenerating, error, onGenerate, onRename }: { items: ClothingItem[]; recommendations: OutfitRecommendation[]; isGenerating: boolean; error: string; onGenerate: () => Promise<void>; onRename: (item: ClothingItem, name: string) => Promise<void> }) {
   const itemById = new Map(items.map((item) => [item.id, item]));
 
   return <>
@@ -710,17 +748,54 @@ function OutfitsScreen({ items, recommendations, isGenerating, error, onGenerate
       return <article className="outfit-recommendation" key={`${outfit.title}-${outfit.itemIds.join('-')}`}>
         <h3>{outfit.title}</h3>
         <p>{outfit.description}</p>
-        <div className="outfit-items">{outfitItems.map((item) => <ClothingCard item={item} key={item.id} />)}</div>
+        <div className="outfit-items">{outfitItems.map((item) => <ClothingCard item={item} onRename={onRename} key={item.id ?? item.imageUrl ?? item.name} />)}</div>
       </article>;
     })}</div>
   </>;
 }
 
-function ClothingCard({ item, onDelete }: { item: ClothingItem; onDelete?: (item: ClothingItem) => Promise<void> }) {
-  return <article className="item-card"><div className={`item-image${item.imageUrl ? ' has-photo' : ''}`} style={{ backgroundColor: item.color, backgroundImage: item.imageUrl ? `url(${item.imageUrl})` : undefined }}><div className="item-shape" style={{ backgroundColor: item.tone }} />{onDelete && <button className="remove-item-button" type="button" onClick={() => void onDelete(item)} aria-label={`Delete ${item.name}`} title={`Delete ${item.name}`}>×</button>}</div><p>{item.name}</p></article>;
+function ClothingCard({ item, onDelete, onRename }: { item: ClothingItem; onDelete?: (item: ClothingItem) => Promise<void>; onRename: (item: ClothingItem, name: string) => Promise<void> }) {
+  const nameInputId = useId();
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [draftName, setDraftName] = useState(item.name);
+  const [renameError, setRenameError] = useState('');
+  const [isSavingName, setIsSavingName] = useState(false);
+
+  async function saveName(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const name = draftName.trim();
+    if (!name) {
+      setRenameError('Enter a name for this item.');
+      return;
+    }
+    if (name === item.name) {
+      setIsEditingName(false);
+      setRenameError('');
+      return;
+    }
+
+    setIsSavingName(true);
+    setRenameError('');
+    try {
+      await onRename(item, name);
+      setIsEditingName(false);
+    } catch (error) {
+      setRenameError(error instanceof Error ? error.message : 'Unable to rename this item.');
+    } finally {
+      setIsSavingName(false);
+    }
+  }
+
+  function cancelNameEdit() {
+    setDraftName(item.name);
+    setRenameError('');
+    setIsEditingName(false);
+  }
+
+  return <article className="item-card"><div className={`item-image${item.imageUrl ? ' has-photo' : ''}`} style={{ backgroundColor: item.color, backgroundImage: item.imageUrl ? `url(${item.imageUrl})` : undefined }}><div className="item-shape" style={{ backgroundColor: item.tone }} />{onDelete && <button className="remove-item-button" type="button" onClick={() => void onDelete(item)} aria-label={`Delete ${item.name}`} title={`Delete ${item.name}`}>×</button>}</div>{isEditingName ? <form className="item-name-edit" onSubmit={(event) => void saveName(event)}><label className="visually-hidden" htmlFor={nameInputId}>Clothing item name</label><input id={nameInputId} autoFocus value={draftName} onChange={(event) => setDraftName(event.target.value)} onKeyDown={(event) => { if (event.key === 'Escape') cancelNameEdit(); }} disabled={isSavingName} maxLength={80} /><div><button type="submit" disabled={isSavingName}>{isSavingName ? 'Saving…' : 'Save'}</button><button type="button" onClick={cancelNameEdit} disabled={isSavingName}>Cancel</button></div>{renameError && <p className="item-name-error" role="alert">{renameError}</p>}</form> : <button className="item-name-button" type="button" onClick={() => { setDraftName(item.name); setRenameError(''); setIsEditingName(true); }} aria-label={`Rename ${item.name}`} title="Click to rename">{item.name}</button>}</article>;
 }
 
-function AddClothingScreen({ items, state, setState, onDelete, onItemSaved }: { items: ClothingItem[]; state: AddClothingState; setState: Dispatch<SetStateAction<AddClothingState>>; onDelete: (item: ClothingItem) => Promise<void>; onItemSaved: (item: ClothingItem) => Promise<void> }) {
+function AddClothingScreen({ items, state, setState, onDelete, onRename, onItemSaved }: { items: ClothingItem[]; state: AddClothingState; setState: Dispatch<SetStateAction<AddClothingState>>; onDelete: (item: ClothingItem) => Promise<void>; onRename: (item: ClothingItem, name: string) => Promise<void>; onItemSaved: (item: ClothingItem) => Promise<void> }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [error, setError] = useState('');
@@ -789,7 +864,7 @@ function AddClothingScreen({ items, state, setState, onDelete, onItemSaved }: { 
     {error && <p className="upload-error" role="alert">{error}</p>}
     {analysis && <article className="analysis-result"><div><span className="result-label">STYLEUP FOUND</span><h3>{analysis.category}</h3></div><div className="result-grid"><span>COLOR<strong>{analysis.color}</strong></span><span>STYLE<strong>{analysis.style}</strong></span><span>PATTERN<strong>{analysis.pattern}</strong></span><span>FORMALITY<strong>{analysis.formality}</strong></span></div><button className="primary-button" type="button" onClick={() => setAnalysis(null)}>ADD ANOTHER PHOTO <span aria-hidden="true">+</span></button></article>}
     <div className="category-heading-row"><h4 className="category-heading">YOUR CLOSET BY CATEGORY</h4></div>
-    <div className="category-list">{categories.map((category, index) => { const categoryItems = items.filter((item) => item.category === category.toUpperCase()); const isExpanded = expandedCategories.includes(category); const categoryId = `category-${category.toLowerCase()}`; return <section className="category-section" key={category}><button className="category-row" type="button" onClick={() => toggleCategory(category)} aria-expanded={isExpanded} aria-controls={categoryId}><span className="category-dot" style={{ backgroundColor: categoryTones[index] }} /><span>{category}<small>{categoryItems.length ? `${categoryItems.length} ${categoryItems.length === 1 ? 'piece' : 'pieces'}` : 'Ready for your first piece'}</small></span><span aria-hidden="true">{isExpanded ? '−' : '+'}</span></button>{isExpanded && <div className="category-items" id={categoryId}>{categoryItems.length ? categoryItems.map((item) => <ClothingCard item={item} key={`${item.name}-${item.imageUrl || item.color}`} onDelete={onDelete} />) : <p className="category-empty">No {category.toLowerCase()} in your closet yet.</p>}</div>}</section>; })}</div>
+    <div className="category-list">{categories.map((category, index) => { const categoryItems = items.filter((item) => item.category === category.toUpperCase()); const isExpanded = expandedCategories.includes(category); const categoryId = `category-${category.toLowerCase()}`; return <section className="category-section" key={category}><button className="category-row" type="button" onClick={() => toggleCategory(category)} aria-expanded={isExpanded} aria-controls={categoryId}><span className="category-dot" style={{ backgroundColor: categoryTones[index] }} /><span>{category}<small>{categoryItems.length ? `${categoryItems.length} ${categoryItems.length === 1 ? 'piece' : 'pieces'}` : 'Ready for your first piece'}</small></span><span aria-hidden="true">{isExpanded ? '−' : '+'}</span></button>{isExpanded && <div className="category-items" id={categoryId}>{categoryItems.length ? categoryItems.map((item) => <ClothingCard item={item} key={item.id ?? item.imageUrl ?? item.name} onDelete={onDelete} onRename={onRename} />) : <p className="category-empty">No {category.toLowerCase()} in your closet yet.</p>}</div>}</section>; })}</div>
   </>;
 }
 
