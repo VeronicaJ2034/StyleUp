@@ -13,6 +13,8 @@ The application is presented inside a responsive phone-shaped preview. The phone
 * Tab navigation
 * Clothing item cards and styling
 * Add clothing interface
+* Style friends area with Instagram and Snapchat connection previews
+* Conceptual try-on studio with a customizable style model
 * Gemini-powered clothing image analysis
 * Structured clothing attributes including:
 
@@ -32,7 +34,8 @@ The current Gemini integration analyzes uploaded clothing images and returns str
 * Seasonal outfit recommendations based on location and weather
 * Clothing wear-frequency tracking
 * Identification of clothing items that may be good candidates to sell
-* Virtual try-on functionality
+* Virtual try-on functionality with personalized model measurements and appearance
+* Social fashion connections and shared style inspiration
 * Potential integration with clothing brand websites
 * Persistent wardrobe storage
 * User accounts and backend services

@@ -4,7 +4,7 @@ import { ChangeEvent, Dispatch, FormEvent, SetStateAction, useEffect, useId, use
 import ProfileAccount from '../components/ProfileAccount';
 import { supabase } from '../lib/supabase';
 
-type Tab = 'matches' | 'outfits' | 'add';
+type Tab = 'matches' | 'outfits' | 'add' | 'friends' | 'try-on';
 type ClothingItem = { id?: string; recordId?: string; name: string; category: string; color: string; tone: string; imageUrl?: string };
 type Analysis = { category: string; color: string; secondaryColor: string | null; pattern: string; style: string; formality: string };
 type OutfitRecommendation = { title: string; description: string; itemIds: string[] };
@@ -72,6 +72,7 @@ export default function HomePage() {
   const [outfitError, setOutfitError] = useState('');
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [hasLoadedTheme, setHasLoadedTheme] = useState(false);
+  const [connectedPlatforms, setConnectedPlatforms] = useState<string[]>(['Instagram']);
 
   const refreshCloset = async (currentUserId: string | null) => {
     const client = supabase;
@@ -402,7 +403,7 @@ export default function HomePage() {
               </div>
             </header>
             <div className="screen-content">
-              {activeTab === 'matches' ? <MatchesScreen items={closetItems} onDelete={deleteClosetItem} onRename={renameClosetItem} /> : activeTab === 'outfits' ? <OutfitsScreen items={closetItems} recommendations={outfitRecommendations} isGenerating={isGeneratingOutfits} error={outfitError} onGenerate={generateOutfits} onRename={renameClosetItem} /> : <AddClothingScreen items={closetItems} state={addClothingState} setState={setAddClothingState} onDelete={deleteClosetItem} onRename={renameClosetItem} onItemSaved={async (item) => {
+              {activeTab === 'matches' ? <MatchesScreen items={closetItems} onDelete={deleteClosetItem} onRename={renameClosetItem} /> : activeTab === 'outfits' ? <OutfitsScreen items={closetItems} recommendations={outfitRecommendations} isGenerating={isGeneratingOutfits} error={outfitError} onGenerate={generateOutfits} onRename={renameClosetItem} /> : activeTab === 'add' ? <AddClothingScreen items={closetItems} state={addClothingState} setState={setAddClothingState} onDelete={deleteClosetItem} onRename={renameClosetItem} onItemSaved={async (item) => {
                 const savedItem = { ...item, id: item.id ?? makeId() };
                 if (!supabase) {
                   setClosetItems((current) => [savedItem, ...current]);
@@ -418,18 +419,200 @@ export default function HomePage() {
                 await saveClosetItem(savedItem);
                 setOutfitRecommendations([]);
                 setOutfitError('');
-              }} />}
+              }} /> : activeTab === 'friends' ? <FriendsScreen connectedPlatforms={connectedPlatforms} onTogglePlatform={(platform) => setConnectedPlatforms((current) => current.includes(platform) ? current.filter((item) => item !== platform) : [...current, platform])} /> : <TryOnScreen items={closetItems} userId={userId} />}
             </div>
             <nav className="tab-bar" aria-label="Closet sections">
               <TabButton label="CLOSET" symbol="+" active={activeTab === 'matches'} onClick={() => setActiveTab('matches')} />
               <TabButton label="OUTFITS" symbol="✦" active={activeTab === 'outfits'} onClick={() => setActiveTab('outfits')} />
               <TabButton label="ADD CLOTHING" symbol="↑" active={activeTab === 'add'} onClick={() => setActiveTab('add')} />
+              <TabButton label="FRIENDS" symbol="♡" active={activeTab === 'friends'} onClick={() => setActiveTab('friends')} />
+              <TabButton label="TRY ON" symbol="◌" active={activeTab === 'try-on'} onClick={() => setActiveTab('try-on')} />
             </nav>
           </>}
         </div>
       </section>
     </main>
   );
+}
+
+const socialPlatforms = [
+  { name: 'Instagram', icon: '◎', tone: '#d96c8a', description: 'Find style friends and share inspiration.' },
+  { name: 'Snapchat', icon: '👻', tone: '#c7a82e', description: 'See what your friends are trying on.' },
+];
+
+function FriendsScreen({ connectedPlatforms, onTogglePlatform }: { connectedPlatforms: string[]; onTogglePlatform: (platform: string) => void }) {
+  const [search, setSearch] = useState('');
+  const [addedFriends, setAddedFriends] = useState<string[]>([]);
+  const [selectedFriend, setSelectedFriend] = useState<{ name: string; handle: string; initials: string; style: string; color: string; inspiration: string; status?: string } | null>(null);
+  const friends = [
+    { name: 'Maya Chen', handle: '@mayastyle', initials: 'MC', style: 'Minimal · Vintage', color: '#d8c1b8', inspiration: 'Maya finds inspiration in vintage markets and clean, everyday layers.', status: 'NEW LOOK' },
+    { name: 'Jordan Ellis', handle: '@jordan.e', initials: 'JE', style: 'Streetwear · Colorful', color: '#b9c8d8', inspiration: 'Jordan mixes bright colors, relaxed silhouettes, and statement sneakers.', status: '2 NEW OUTFITS' },
+    { name: 'Sofia Rivera', handle: '@sofiar', initials: 'SR', style: 'Classic · Soft tailoring', color: '#d2c4d8', inspiration: 'Sofia loves polished basics, soft tailoring, and thoughtful accessories.', status: 'INSPIRATION' },
+  ];
+  const recommendations = [
+    { name: 'Avery Brooks', handle: '@averyedits', initials: 'AB', style: 'Modern · Neutral', color: '#c7d0c2', inspiration: 'Avery builds calm, modern looks around neutral tones and simple shapes.' },
+    { name: 'Nia Williams', handle: '@niawears', initials: 'NW', style: 'Bold · Eclectic', color: '#d8bd9f', inspiration: 'Nia experiments with unexpected prints, color, and playful vintage finds.' },
+  ];
+  const visibleFriends = friends.filter((friend) => `${friend.name} ${friend.handle}`.toLowerCase().includes(search.toLowerCase()));
+
+  return <div className="social-page">
+    <div className="social-heading"><div><h2>Friends</h2></div><span className="social-count">{friends.length} FRIENDS</span></div>
+    <div className="platform-list">
+      {socialPlatforms.map((platform) => {
+        const isConnected = connectedPlatforms.includes(platform.name);
+        return <button className={`platform-card${isConnected ? ' connected' : ''}`} key={platform.name} type="button" onClick={() => onTogglePlatform(platform.name)}>
+          <span className="platform-icon" style={{ backgroundColor: platform.tone }}>{platform.icon}</span>
+          <span className="platform-copy"><strong>{platform.name}</strong><small>{isConnected ? 'Connected · find friends' : platform.description}</small></span>
+          <span className="platform-action">{isConnected ? '✓' : 'CONNECT'}</span>
+        </button>;
+      })}
+    </div>
+    <div className="friend-search"><span aria-hidden="true">⌕</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search by name or username" aria-label="Search friends" /></div>
+    <div className="section-heading friends-section-heading"><h4>STYLE FRIENDS</h4></div>
+    <div className="friend-list">{visibleFriends.map((friend) => <button className="friend-card" key={friend.handle} type="button" onClick={() => setSelectedFriend(friend)} aria-label={`View ${friend.name}'s profile`}>
+      <div className="friend-avatar" style={{ backgroundColor: friend.color }}>{friend.initials}</div>
+      <div className="friend-details"><strong>{friend.name}</strong><small>{friend.handle}</small><span>{friend.style}</span></div>
+      <span className="friend-profile-hint">PROFILE<br /><b>→</b></span>
+    </button>)}</div>
+    {visibleFriends.length === 0 && <p className="social-empty">No style friends found yet.</p>}
+    <div className="section-heading recommendations-heading"><h4>SUGGESTED FOR YOU</h4></div>
+    <div className="friend-list recommendation-list">{recommendations.map((friend) => {
+      const isAdded = addedFriends.includes(friend.handle);
+      return <article className="friend-card" key={friend.handle} onClick={() => setSelectedFriend(friend)}>
+        <div className="friend-avatar" style={{ backgroundColor: friend.color }}>{friend.initials}</div>
+        <div className="friend-details"><strong>{friend.name}</strong><small>{friend.handle}</small><span>{friend.style}</span></div>
+        <button className={`add-friend-button${isAdded ? ' added' : ''}`} type="button" onClick={(event) => { event.stopPropagation(); setAddedFriends((current) => isAdded ? current.filter((handle) => handle !== friend.handle) : [...current, friend.handle]); }}>{isAdded ? '✓ ADDED' : '+ ADD'}</button>
+      </article>;
+    })}</div>
+    {selectedFriend && <div className="friend-profile-overlay" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setSelectedFriend(null); }}>
+      <section className="friend-profile-panel" role="dialog" aria-modal="true" aria-labelledby="friend-profile-title">
+        <button className="friend-profile-close" type="button" onClick={() => setSelectedFriend(null)} aria-label="Close friend profile">×</button>
+        <div className="friend-profile-avatar" style={{ backgroundColor: selectedFriend.color }}>{selectedFriend.initials}</div>
+        <p className="eyebrow">STYLE FRIEND</p>
+        <h3 id="friend-profile-title">{selectedFriend.name}</h3>
+        <p className="friend-profile-handle">{selectedFriend.handle}</p>
+        <div className="friend-profile-style">{selectedFriend.style}</div>
+        <div className="friend-profile-stats"><span><strong>24</strong> OUTFITS</span><span><strong>18</strong> SAVED LOOKS</span><span><strong>4</strong> SHARED TAGS</span></div>
+        <p className="friend-profile-note">{selectedFriend.inspiration}</p>
+        <button className="primary-button" type="button" onClick={() => setSelectedFriend(null)}>DONE</button>
+      </section>
+    </div>}
+  </div>;
+}
+
+type ModelProfile = { presentation: string; hairType: string; hairLength: string; hairColor: string; skinTone: string; eyeColor: string; height: string; weight: string };
+
+const defaultModelProfile: ModelProfile = { presentation: 'Woman', hairType: 'Wavy', hairLength: 'Medium', hairColor: '#4b342c', skinTone: '#c99578', eyeColor: '#3d302a', height: '', weight: '' };
+
+function TryOnScreen({ items, userId }: { items: ClothingItem[]; userId: string | null }) {
+  const [selectedCategory, setSelectedCategory] = useState<'tops' | 'bottoms' | 'shoes'>('tops');
+  const [outfitColors, setOutfitColors] = useState({ tops: '#7a91b2', bottoms: '#35485d', shoes: '#242b31' });
+  const [selectedClothing, setSelectedClothing] = useState<Partial<Record<'tops' | 'bottoms' | 'shoes', ClothingItem>>>({});
+  const [showProfileForm, setShowProfileForm] = useState(false);
+  const [modelProfile, setModelProfile] = useState<ModelProfile>(defaultModelProfile);
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [profileMessage, setProfileMessage] = useState('');
+  const options = selectedCategory === 'tops' ? ['#7a91b2', '#c68b82', '#d7c7a7'] : selectedCategory === 'bottoms' ? ['#35485d', '#675a78', '#b89f7c'] : ['#242b31', '#f0eee8', '#9c805a'];
+  const categoryItems = items.filter((item) => normalizeCategory(item.category) === normalizeCategory(selectedCategory === 'tops' ? 'Tops' : selectedCategory === 'bottoms' ? 'Pants' : 'Shoes'));
+  const heightParts = modelProfile.height.match(/(\d+)\D+(\d+)/);
+  const heightInches = heightParts ? Number(heightParts[1]) * 12 + Number(heightParts[2]) : Number.parseInt(modelProfile.height, 10);
+  const heightScale = Number.isFinite(heightInches) ? Math.min(1.16, Math.max(.86, heightInches / 66 || 1)) : 1;
+  const weightValue = Number.parseInt(modelProfile.weight, 10);
+  const modelWidth = Number.isFinite(weightValue) ? Math.min(1.1, Math.max(.9, 1 + (weightValue - 140) / 1200)) : 1;
+  const hairShape = modelProfile.hairType === 'Straight' ? '48% 48% 8% 8%' : modelProfile.hairType === 'Curly' ? '50%' : modelProfile.hairType === 'Coily' ? '45% 45% 20% 20%' : '48% 48% 25% 25%';
+  const hairHeight = modelProfile.hairLength === 'Long' ? '78px' : modelProfile.hairLength === 'Short' ? '48px' : '82px';
+  const hairWidth = modelProfile.hairLength === 'Long' ? '82px' : '73px';
+  const selectedPiece = selectedClothing[selectedCategory];
+  const clothingStyle = (category: 'tops' | 'bottoms' | 'shoes') => ({
+    backgroundColor: outfitColors[category],
+    ...(selectedClothing[category]?.imageUrl ? { backgroundImage: `url(${selectedClothing[category]?.imageUrl})` } : {}),
+  });
+
+  useEffect(() => {
+    let isActive = true;
+    const loadModelProfile = async () => {
+      let savedProfile: Partial<ModelProfile> | null = null;
+      if (supabase && userId) {
+        const { data, error } = await supabase.auth.getUser();
+        if (error) {
+          console.error('Unable to load try-on profile:', error.message);
+        } else if (data.user?.id === userId) {
+          const metadata = data.user.user_metadata;
+          savedProfile = {
+            presentation: metadata.model_presentation,
+            hairType: metadata.hair_type,
+            hairLength: metadata.hair_length,
+            hairColor: metadata.hair_color,
+            skinTone: metadata.skin_tone,
+            eyeColor: metadata.eye_color,
+            height: metadata.height,
+            weight: metadata.weight,
+          };
+        }
+      } else {
+        const localProfile = window.localStorage.getItem('styleup-model-profile');
+        if (localProfile) {
+          try {
+            savedProfile = JSON.parse(localProfile) as Partial<ModelProfile>;
+          } catch {
+            window.localStorage.removeItem('styleup-model-profile');
+          }
+        }
+      }
+      if (isActive && savedProfile) {
+        setModelProfile((current) => ({ ...current, ...savedProfile }));
+      }
+    };
+    void loadModelProfile();
+    return () => { isActive = false; };
+  }, [userId]);
+
+  async function saveModelProfile() {
+    setIsSavingProfile(true);
+    setProfileMessage('');
+    if (supabase && userId) {
+      const { error } = await supabase.auth.updateUser({
+        data: {
+          model_presentation: modelProfile.presentation,
+          hair_type: modelProfile.hairType,
+          hair_length: modelProfile.hairLength,
+          hair_color: modelProfile.hairColor,
+          skin_tone: modelProfile.skinTone,
+          eye_color: modelProfile.eyeColor,
+          height: modelProfile.height,
+          weight: modelProfile.weight,
+        },
+      });
+      if (error) {
+        setIsSavingProfile(false);
+        setProfileMessage('Your profile could not be saved. Please try again.');
+        return;
+      }
+    } else {
+      window.localStorage.setItem('styleup-model-profile', JSON.stringify(modelProfile));
+    }
+    setIsSavingProfile(false);
+    setProfileMessage('Saved');
+  }
+
+  return <div className="try-on-page">
+    <div className="try-on-heading"><div><h2>Try it on</h2></div></div>
+    <div className="avatar-stage">
+      <div className="avatar-glow" />
+      <div className={`model-figure ${modelProfile.presentation === 'Man' ? 'masculine' : 'feminine'}`} style={{ transform: `scaleX(${modelWidth}) scaleY(${heightScale})` }}>
+        <div className={`model-head ${modelProfile.presentation === 'Man' ? 'masculine' : 'feminine'}`} style={{ backgroundColor: modelProfile.skinTone }}><span className={`model-hair${modelProfile.presentation === 'Woman' ? ' hair-feminine' : ''}${modelProfile.hairLength === 'Long' ? ' hair-long' : ''}`} style={{ backgroundColor: modelProfile.hairColor, borderRadius: hairShape, height: hairHeight, width: hairWidth }} /><span className="model-face" style={{ backgroundColor: modelProfile.skinTone }} /><span className="model-eye left" style={{ backgroundColor: modelProfile.eyeColor }} /><span className="model-eye right" style={{ backgroundColor: modelProfile.eyeColor }} /><span className="model-nose" /><span className="model-mouth" /></div>
+        <div className="model-neck" style={{ backgroundColor: modelProfile.skinTone }} /><div className="model-torso"><div className="model-arm left" style={{ backgroundColor: modelProfile.skinTone }} /><div className="model-arm right" style={{ backgroundColor: modelProfile.skinTone }} /><div className={`model-top${selectedClothing.tops?.imageUrl ? ' has-closet-photo' : ''}`} style={clothingStyle('tops')} /></div><div className={`model-bottom${selectedClothing.bottoms?.imageUrl ? ' has-closet-photo' : ''}`} style={clothingStyle('bottoms')} /><div className="model-feet" style={{ color: outfitColors.shoes }}><span className={selectedClothing.shoes?.imageUrl ? 'has-closet-photo' : ''} style={clothingStyle('shoes')} /><span className={selectedClothing.shoes?.imageUrl ? 'has-closet-photo' : ''} style={clothingStyle('shoes')} /></div>
+      </div>
+    </div>
+    <div className="try-on-controls">
+      <div className="control-row">{(['tops', 'bottoms', 'shoes'] as const).map((category) => <button key={category} className={selectedCategory === category ? 'selected' : ''} type="button" onClick={() => setSelectedCategory(category)}>{category === 'tops' ? 'TOP' : category === 'bottoms' ? 'BOTTOM' : 'SHOES'}</button>)}</div>
+      <div className="color-row">{options.map((color) => <button key={color} className={`color-swatch${outfitColors[selectedCategory] === color ? ' selected' : ''}`} style={{ backgroundColor: color }} type="button" onClick={() => setOutfitColors((current) => ({ ...current, [selectedCategory]: color }))} aria-label={`Choose ${color}`} />)}</div>
+      {categoryItems.length > 0 && <div className="closet-try-on-list">{categoryItems.map((item) => <button className={`closet-try-on-item${selectedPiece?.id === item.id ? ' selected' : ''}`} key={item.id ?? item.imageUrl ?? item.name} type="button" onClick={() => setSelectedClothing((current) => ({ ...current, [selectedCategory]: item }))} aria-label={`Try on ${item.name}`}><span style={{ backgroundImage: item.imageUrl ? `url(${item.imageUrl})` : undefined, backgroundColor: item.color }} /><small>{item.name}</small></button>)}</div>}
+      <p className="try-on-selection">{selectedPiece ? `${selectedPiece.name} is on your model` : categoryItems.length ? 'Choose a closet piece to try it on' : 'Add a closet photo to try it on here'}</p>
+    </div>
+    <button className="profile-setup-button" type="button" onClick={() => setShowProfileForm((current) => !current)}>{showProfileForm ? 'HIDE STYLE PROFILE' : 'PERSONALIZE YOUR MODEL'} <span>{showProfileForm ? '−' : '+'}</span></button>
+    {showProfileForm && <div className="model-profile-card"><strong>Model details</strong><div className="model-profile-grid"><label>MODEL<select value={modelProfile.presentation} onChange={(event) => setModelProfile((current) => ({ ...current, presentation: event.target.value }))}><option>Woman</option><option>Man</option></select></label><label>HAIR LENGTH<select value={modelProfile.hairLength} onChange={(event) => setModelProfile((current) => ({ ...current, hairLength: event.target.value }))}><option>Short</option><option>Medium</option><option>Long</option></select></label><label>HAIR TYPE<select value={modelProfile.hairType} onChange={(event) => setModelProfile((current) => ({ ...current, hairType: event.target.value }))}><option>Straight</option><option>Wavy</option><option>Curly</option><option>Coily</option></select></label><label>HAIR COLOR<select value={modelProfile.hairColor} onChange={(event) => setModelProfile((current) => ({ ...current, hairColor: event.target.value }))}><option value="#171313">Black</option><option value="#4b342c">Brown</option><option value="#c7a66a">Blonde</option><option value="#8e4938">Red</option></select></label><label>SKIN TONE<select value={modelProfile.skinTone} onChange={(event) => setModelProfile((current) => ({ ...current, skinTone: event.target.value }))}><option value="#f0c7a8">Light</option><option value="#c99578">Warm</option><option value="#81543f">Deep</option></select></label><label>EYE COLOR<select value={modelProfile.eyeColor} onChange={(event) => setModelProfile((current) => ({ ...current, eyeColor: event.target.value }))}><option value="#3d302a">Brown</option><option value="#47768a">Blue</option><option value="#4f765e">Green</option><option value="#766044">Hazel</option></select></label><label>HEIGHT<input value={modelProfile.height} onChange={(event) => setModelProfile((current) => ({ ...current, height: event.target.value }))} placeholder={`5' 6"`} /></label><label>WEIGHT<input value={modelProfile.weight} onChange={(event) => setModelProfile((current) => ({ ...current, weight: event.target.value }))} placeholder="140 lb" /></label></div><button className="primary-button" type="button" onClick={() => void saveModelProfile()} disabled={isSavingProfile}>{isSavingProfile ? 'SAVING…' : 'SAVE STYLE PROFILE'}</button>{profileMessage && <p className="try-on-profile-message" role="status">{profileMessage}</p>}</div>}
+  </div>;
 }
 
 function ThemeToggle({ isDarkMode, onToggle }: { isDarkMode: boolean; onToggle: () => void }) {
