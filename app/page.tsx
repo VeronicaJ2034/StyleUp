@@ -503,6 +503,16 @@ function FriendsScreen({ connectedPlatforms, onTogglePlatform }: { connectedPlat
 type ModelProfile = { presentation: string; hairType: string; hairLength: string; hairColor: string; skinTone: string; eyeColor: string; height: string; weight: string };
 
 const defaultModelProfile: ModelProfile = { presentation: 'Woman', hairType: 'Wavy', hairLength: 'Medium', hairColor: '#4b342c', skinTone: '#c99578', eyeColor: '#3d302a', height: '', weight: '' };
+const modelProfileKeys: (keyof ModelProfile)[] = ['presentation', 'hairType', 'hairLength', 'hairColor', 'skinTone', 'eyeColor', 'height', 'weight'];
+
+function sanitizeModelProfile(profile: Record<string, unknown>): Partial<ModelProfile> {
+  const sanitized: Partial<ModelProfile> = {};
+  for (const key of modelProfileKeys) {
+    const value = profile[key];
+    if (typeof value === 'string') sanitized[key] = value;
+  }
+  return sanitized;
+}
 
 function TryOnScreen({ items, userId }: { items: ClothingItem[]; userId: string | null }) {
   const [selectedCategory, setSelectedCategory] = useState<'tops' | 'bottoms' | 'shoes'>('tops');
@@ -514,8 +524,9 @@ function TryOnScreen({ items, userId }: { items: ClothingItem[]; userId: string 
   const [profileMessage, setProfileMessage] = useState('');
   const options = selectedCategory === 'tops' ? ['#7a91b2', '#c68b82', '#d7c7a7'] : selectedCategory === 'bottoms' ? ['#35485d', '#675a78', '#b89f7c'] : ['#242b31', '#f0eee8', '#9c805a'];
   const categoryItems = items.filter((item) => normalizeCategory(item.category) === normalizeCategory(selectedCategory === 'tops' ? 'Tops' : selectedCategory === 'bottoms' ? 'Pants' : 'Shoes'));
-  const heightParts = modelProfile.height.match(/(\d+)\D+(\d+)/);
-  const heightInches = heightParts ? Number(heightParts[1]) * 12 + Number(heightParts[2]) : Number.parseInt(modelProfile.height, 10);
+  const modelHeight = typeof modelProfile.height === 'string' ? modelProfile.height : '';
+  const heightParts = modelHeight.match(/(\d+)\D+(\d+)/);
+  const heightInches = heightParts ? Number(heightParts[1]) * 12 + Number(heightParts[2]) : Number.parseInt(modelHeight, 10);
   const heightScale = Number.isFinite(heightInches) ? Math.min(1.16, Math.max(.86, heightInches / 66 || 1)) : 1;
   const weightValue = Number.parseInt(modelProfile.weight, 10);
   const modelWidth = Number.isFinite(weightValue) ? Math.min(1.1, Math.max(.9, 1 + (weightValue - 140) / 1200)) : 1;
@@ -538,7 +549,7 @@ function TryOnScreen({ items, userId }: { items: ClothingItem[]; userId: string 
           console.error('Unable to load try-on profile:', error.message);
         } else if (data.user?.id === userId) {
           const metadata = data.user.user_metadata;
-          savedProfile = {
+          savedProfile = sanitizeModelProfile({
             presentation: metadata.model_presentation,
             hairType: metadata.hair_type,
             hairLength: metadata.hair_length,
@@ -547,13 +558,16 @@ function TryOnScreen({ items, userId }: { items: ClothingItem[]; userId: string 
             eyeColor: metadata.eye_color,
             height: metadata.height,
             weight: metadata.weight,
-          };
+          });
         }
       } else {
         const localProfile = window.localStorage.getItem('styleup-model-profile');
         if (localProfile) {
           try {
-            savedProfile = JSON.parse(localProfile) as Partial<ModelProfile>;
+            const parsedProfile: unknown = JSON.parse(localProfile);
+            if (parsedProfile && typeof parsedProfile === 'object' && !Array.isArray(parsedProfile)) {
+              savedProfile = sanitizeModelProfile(parsedProfile as Record<string, unknown>);
+            }
           } catch {
             window.localStorage.removeItem('styleup-model-profile');
           }

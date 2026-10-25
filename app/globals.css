@@ -220,8 +220,8 @@ h2 { margin: 17px 0 0; font-size: 24px; line-height: 1.1; }
 .model-head.masculine { width: 68px; border-radius: 43% 43% 39% 39%; }
 .model-neck { z-index: 1; width: 24px; height: 21px; margin-top: -2px; background: #bd876e; }
 .model-torso { position: relative; z-index: 2; width: 148px; height: 83px; margin-top: -2px; }
-.model-arm { position: absolute; z-index: 1; top: 7px; width: 15px; height: 82px; border-radius: 11px; }
-.model-arm.left { left: 31px; transform: rotate(8deg); transform-origin: top center; }.model-arm.right { right: 31px; transform: rotate(-8deg); transform-origin: top center; }
+.model-arm { position: absolute; z-index: 0; top: 7px; width: 13px; height: 82px; border-radius: 10px; }
+.model-arm.left { left: 41px; transform: rotate(8deg); transform-origin: top center; }.model-arm.right { right: 41px; transform: rotate(-8deg); transform-origin: top center; }
 .model-top { position: absolute; top: 0; left: 34px; width: 80px; height: 87px; border-radius: 18px 18px 8px 8px; clip-path: polygon(21% 0, 79% 0, 100% 24%, 88% 38%, 84% 82%, 76% 96%, 50% 100%, 24% 96%, 16% 82%, 12% 38%, 0 24%); }
 .model-figure.feminine .model-top { left: 34px; width: 80px; border-radius: 18px 18px 8px 8px; }
 .model-figure.feminine .model-bottom { width: 101px; }
