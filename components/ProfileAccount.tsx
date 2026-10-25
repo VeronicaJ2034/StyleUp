@@ -14,6 +14,12 @@ export default function ProfileAccount() {
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [birthday, setBirthday] = useState('');
+  const [hairType, setHairType] = useState('Wavy');
+  const [hairColor, setHairColor] = useState('Brown');
+  const [skinTone, setSkinTone] = useState('Warm');
+  const [height, setHeight] = useState('');
+  const [weight, setWeight] = useState('');
+  const [eyeColor, setEyeColor] = useState('Brown');
   const [isBirthdayEditing, setIsBirthdayEditing] = useState(true);
   const [isNameEditing, setIsNameEditing] = useState(true);
   const [message, setMessage] = useState('');
@@ -34,6 +40,12 @@ export default function ProfileAccount() {
     const savedName = typeof user?.user_metadata.full_name === 'string' ? user.user_metadata.full_name
       : typeof user?.user_metadata.name === 'string' ? user.user_metadata.name : '';
     const savedBirthday = typeof user?.user_metadata.birthday === 'string' ? user.user_metadata.birthday : '';
+    setHairType(typeof user?.user_metadata.hair_type === 'string' ? user.user_metadata.hair_type : 'Wavy');
+    setHairColor(typeof user?.user_metadata.hair_color === 'string' ? user.user_metadata.hair_color : 'Brown');
+    setSkinTone(typeof user?.user_metadata.skin_tone === 'string' ? user.user_metadata.skin_tone : 'Warm');
+    setHeight(typeof user?.user_metadata.height === 'string' ? user.user_metadata.height : '');
+    setWeight(typeof user?.user_metadata.weight === 'string' ? user.user_metadata.weight : '');
+    setEyeColor(typeof user?.user_metadata.eye_color === 'string' ? user.user_metadata.eye_color : 'Brown');
     setName(savedName);
     setIsNameEditing(!savedName);
     setBirthday(savedBirthday);
@@ -91,10 +103,21 @@ export default function ProfileAccount() {
       setMessage(error.message);
       return;
     }
+
     const { data } = await supabase.auth.getUser();
     setUser(data.user);
     setIsBirthdayEditing(false);
     setMessage('Birthday saved to your account.');
+  }
+
+  async function saveStyleProfile(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!supabase || !user) return;
+    setIsBusy(true);
+    setMessage('');
+    const { error } = await supabase.auth.updateUser({ data: { hair_type: hairType, hair_color: hairColor, skin_tone: skinTone, height, weight, eye_color: eyeColor } });
+    setIsBusy(false);
+    setMessage(error ? error.message : 'Style profile saved. Your try-on model is personalized.');
   }
 
   async function uploadPhoto(event: ChangeEvent<HTMLInputElement>) {
@@ -189,6 +212,18 @@ export default function ProfileAccount() {
             <span><strong>Birthday</strong>{new Date(`${birthday}T00:00:00`).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}</span>
             <button className="account-birthday-edit" type="button" onClick={() => setIsBirthdayEditing(true)}>Edit</button>
           </div>}
+          <form className="account-form style-profile-form" onSubmit={saveStyleProfile}>
+            <div className="style-profile-title"><span><strong>Style profile</strong><small>Personalize your try-on model</small></span><span className="style-profile-mark">✦</span></div>
+            <div className="style-profile-grid">
+              <label>Hair type<select value={hairType} onChange={(event) => setHairType(event.target.value)}><option>Straight</option><option>Wavy</option><option>Curly</option><option>Coily</option></select></label>
+              <label>Hair color<select value={hairColor} onChange={(event) => setHairColor(event.target.value)}><option>Black</option><option>Brown</option><option>Blonde</option><option>Red</option></select></label>
+              <label>Skin tone<select value={skinTone} onChange={(event) => setSkinTone(event.target.value)}><option>Light</option><option>Warm</option><option>Deep</option></select></label>
+              <label>Eye color<select value={eyeColor} onChange={(event) => setEyeColor(event.target.value)}><option>Brown</option><option>Blue</option><option>Green</option><option>Hazel</option></select></label>
+              <label>Height<input value={height} onChange={(event) => setHeight(event.target.value)} placeholder={`5' 6"`} /></label>
+              <label>Weight<input value={weight} onChange={(event) => setWeight(event.target.value)} placeholder="140 lb" /></label>
+            </div>
+            <button className="account-action" type="submit" disabled={isBusy}>{isBusy ? 'SAVING…' : 'SAVE STYLE PROFILE'}</button>
+          </form>
           <input ref={photoInput} className="visually-hidden" type="file" accept="image/jpeg,image/png,image/webp" onChange={uploadPhoto} />
           <button className="account-action" type="button" onClick={() => photoInput.current?.click()} disabled={isBusy}>{isBusy ? 'SAVING…' : avatarUrl ? 'CHANGE PROFILE PHOTO' : 'ADD PROFILE PHOTO'}</button>
           {avatarUrl && <button className="account-text-action" type="button" onClick={removePhoto} disabled={isBusy}>Remove photo</button>}
