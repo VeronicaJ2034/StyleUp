@@ -75,7 +75,12 @@ button { font: inherit; }
 .location-suggestion:hover, .location-suggestion:focus { background: #edf3fb; }
 .location-suggestion.muted { color: var(--muted); cursor: default; }
 .weather-form-actions { display: flex; gap: 8px; margin-top: 10px; }
+.weather-form-actions .small-button { flex: 1; width: auto; min-width: 0; }
 .small-button { width: 100%; padding: 10px 8px; }
+.weather-location-toggle { margin-top: 9px; border: 0; padding: 0; background: transparent; color: var(--blue); cursor: pointer; font: 700 9px Arial, sans-serif; letter-spacing: .7px; }
+.weather-location-toggle:focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; }
+.location-suggestion { display: block; width: 100%; border: 0; background: transparent; text-align: left; }
+.weather-location-error { margin: 8px 0 0; color: #a34432; font: 11px/1.35 Arial, sans-serif; }
 .weather-empty { margin: 12px 0 0; color: var(--muted); font: 12px Arial, sans-serif; }
 .screen-content > * { margin-left: 32px; margin-right: 32px; }
 h2 { margin: 17px 0 0; font-size: 24px; line-height: 1.1; }

@@ -445,7 +445,8 @@ function ThemeToggle({ isDarkMode, onToggle }: { isDarkMode: boolean; onToggle: 
   );
 }
 
-type WeatherReport = { temperature: number; code: number; rainChance: number; windSpeed: number };
+type WeatherReport = { temperature: number; code: number; rainChance: number; windSpeed: number; location: string };
+type WeatherLocation = { name: string; latitude: number; longitude: number };
 type OutfitTip = { icon: string; condition: string; title: string; advice: string; image: string; alt: string };
 
 function getOutfitTip(weather: WeatherReport): OutfitTip {
@@ -476,41 +477,121 @@ function WeatherBadge() {
   const [panelOpen, setPanelOpen] = useState(false);
   const [weather, setWeather] = useState<WeatherReport | null>(null);
   const [status, setStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
+  const [savedLocation, setSavedLocation] = useState<WeatherLocation | null>(null);
+  const [locationSearchOpen, setLocationSearchOpen] = useState(false);
+  const [locationQuery, setLocationQuery] = useState('');
+  const [locationResults, setLocationResults] = useState<WeatherLocation[]>([]);
+  const [locationError, setLocationError] = useState('');
+  const [isSearchingLocations, setIsSearchingLocations] = useState(false);
+
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem('styleup-weather-location');
+      if (saved) setSavedLocation(JSON.parse(saved) as WeatherLocation);
+    } catch {
+      window.localStorage.removeItem('styleup-weather-location');
+    }
+  }, []);
+
+  async function loadWeatherAt(latitude: number, longitude: number, location: string) {
+    setStatus('loading');
+    try {
+      const params = new URLSearchParams({
+        latitude: String(latitude),
+        longitude: String(longitude),
+        current: 'temperature_2m,weather_code,precipitation,wind_speed_10m',
+        daily: 'precipitation_probability_max',
+        temperature_unit: 'fahrenheit',
+        wind_speed_unit: 'mph',
+        timezone: 'auto',
+        forecast_days: '1',
+      });
+      const response = await fetch(`https://api.open-meteo.com/v1/forecast?${params}`);
+      if (!response.ok) throw new Error('Weather request failed');
+      const data = await response.json();
+      const report = {
+        temperature: Math.round(Number(data.current.temperature_2m)),
+        code: Number(data.current.weather_code),
+        rainChance: Number(data.daily?.precipitation_probability_max?.[0] ?? 0),
+        windSpeed: Math.round(Number(data.current.wind_speed_10m ?? 0)),
+        location,
+      };
+      if (!Number.isFinite(report.temperature) || !Number.isFinite(report.code)) throw new Error('Weather data was unavailable');
+      setWeather(report);
+      setStatus('ready');
+    } catch {
+      setStatus('error');
+    }
+  }
 
   function loadWeather() {
+    if (savedLocation) {
+      void loadWeatherAt(savedLocation.latitude, savedLocation.longitude, savedLocation.name);
+      return;
+    }
     if (!navigator.geolocation) {
       setStatus('error');
       return;
     }
     setStatus('loading');
-    navigator.geolocation.getCurrentPosition(async ({ coords }) => {
-      try {
-        const params = new URLSearchParams({
-          latitude: String(coords.latitude),
-          longitude: String(coords.longitude),
-          current: 'temperature_2m,weather_code,precipitation,wind_speed_10m',
-          daily: 'precipitation_probability_max',
-          temperature_unit: 'fahrenheit',
-          wind_speed_unit: 'mph',
-          timezone: 'auto',
-          forecast_days: '1',
-        });
-        const response = await fetch(`https://api.open-meteo.com/v1/forecast?${params}`);
-        if (!response.ok) throw new Error('Weather request failed');
-        const data = await response.json();
-        const report = {
-          temperature: Math.round(Number(data.current.temperature_2m)),
-          code: Number(data.current.weather_code),
-          rainChance: Number(data.daily?.precipitation_probability_max?.[0] ?? 0),
-          windSpeed: Math.round(Number(data.current.wind_speed_10m ?? 0)),
-        };
-        if (!Number.isFinite(report.temperature) || !Number.isFinite(report.code)) throw new Error('Weather data was unavailable');
-        setWeather(report);
-        setStatus('ready');
-      } catch {
-        setStatus('error');
-      }
-    }, () => setStatus('error'), { timeout: 12000, maximumAge: 10 * 60 * 1000 });
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => void loadWeatherAt(coords.latitude, coords.longitude, 'Your current location'),
+      () => setStatus('error'),
+      { timeout: 12000, maximumAge: 10 * 60 * 1000 },
+    );
+  }
+
+  async function searchLocations(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const query = locationQuery.trim();
+    if (!query) return;
+    setIsSearchingLocations(true);
+    setLocationError('');
+    setLocationResults([]);
+    try {
+      const params = new URLSearchParams({ name: query, count: '5', language: 'en', format: 'json' });
+      const response = await fetch(`https://geocoding-api.open-meteo.com/v1/search?${params}`);
+      if (!response.ok) throw new Error('Location search failed');
+      const data = await response.json();
+      const results: WeatherLocation[] = (data.results ?? []).map((result: { name: string; admin1?: string; country?: string; latitude: number; longitude: number }) => ({
+        name: [result.name, result.admin1, result.country].filter(Boolean).filter((part, index, parts) => parts.indexOf(part) === index).join(', '),
+        latitude: Number(result.latitude),
+        longitude: Number(result.longitude),
+      }));
+      setLocationResults(results);
+      if (results.length === 0) setLocationError('No matching places found. Try a nearby city or town.');
+    } catch {
+      setLocationError('Couldn’t search for that location. Please try again.');
+    } finally {
+      setIsSearchingLocations(false);
+    }
+  }
+
+  function selectLocation(location: WeatherLocation) {
+    setSavedLocation(location);
+    window.localStorage.setItem('styleup-weather-location', JSON.stringify(location));
+    setLocationSearchOpen(false);
+    setLocationResults([]);
+    setLocationQuery('');
+    void loadWeatherAt(location.latitude, location.longitude, location.name);
+  }
+
+  function useCurrentLocation() {
+    setSavedLocation(null);
+    window.localStorage.removeItem('styleup-weather-location');
+    setLocationSearchOpen(false);
+    setLocationResults([]);
+    setLocationQuery('');
+    if (!navigator.geolocation) {
+      setStatus('error');
+      return;
+    }
+    setStatus('loading');
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => void loadWeatherAt(coords.latitude, coords.longitude, 'Your current location'),
+      () => setStatus('error'),
+      { timeout: 12000, maximumAge: 10 * 60 * 1000 },
+    );
   }
 
   function togglePanel() {
@@ -541,13 +622,24 @@ function WeatherBadge() {
             <div className="weather-panel-location">
               <p className="weather-label">WEATHER-BASED OUTFIT</p>
               <h3>What to wear today</h3>
-              <small>Uses your location only to check local weather</small>
+              <small>{weather?.location ?? (savedLocation?.name || 'Uses your location only to check local weather')}</small>
             </div>
             <button type="button" className="close-panel" onClick={() => setPanelOpen(false)} aria-label="Close outfit suggestion">×</button>
           </div>
 
-          {status === 'loading' && <p className="weather-empty" role="status">Checking your local weather…</p>}
-          {status === 'error' && <div className="weather-error-state"><p className="weather-empty">Couldn’t get your weather. Allow location access and try again.</p><button type="button" className="secondary-button weather-demo-button" onClick={loadWeather}>TRY AGAIN</button></div>}
+          <button type="button" className="weather-location-toggle" onClick={() => { setLocationSearchOpen(!locationSearchOpen); setLocationError(''); }}>
+            {locationSearchOpen ? 'CANCEL LOCATION CHANGE' : 'CHANGE LOCATION'}
+          </button>
+          {locationSearchOpen && <form className="weather-form" onSubmit={searchLocations}>
+            <label htmlFor="weather-location-search">CITY OR POSTAL CODE</label>
+            <div className="location-input-wrap"><input id="weather-location-search" value={locationQuery} onChange={(event) => setLocationQuery(event.target.value)} placeholder="e.g. Portland, OR" autoComplete="off" />
+              {locationResults.length > 0 && <ul className="location-suggestions" aria-label="Location search results">{locationResults.map((location) => <li key={`${location.latitude},${location.longitude}`}><button type="button" className="location-suggestion" onClick={() => selectLocation(location)}>{location.name}</button></li>)}</ul>}
+            </div>
+            <div className="weather-form-actions"><button className="primary-button small-button" type="submit" disabled={isSearchingLocations}>{isSearchingLocations ? 'SEARCHING…' : 'SEARCH'}</button>{savedLocation && <button className="secondary-button small-button" type="button" onClick={useCurrentLocation}>USE MY LOCATION</button>}</div>
+            {locationError && <p className="weather-location-error" role="status">{locationError}</p>}
+          </form>}
+          {status === 'loading' && <p className="weather-empty" role="status">Checking weather…</p>}
+          {status === 'error' && <div className="weather-error-state"><p className="weather-empty">Couldn’t get your weather. Try again or choose a different location.</p><button type="button" className="secondary-button weather-demo-button" onClick={loadWeather}>TRY AGAIN</button></div>}
           {status === 'ready' && weather && outfit && <>
             <div className="weather-panel-snapshot">
               <div><span className="weather-mini-label">OUTSIDE</span><strong>{outfit.icon} {describeWeatherCode(weather.code)}</strong></div>
