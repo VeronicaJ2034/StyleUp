@@ -47,7 +47,7 @@ button { font: inherit; }
 .weather-badge:focus-visible { outline: 2px solid var(--blue); outline-offset: 4px; border-radius: 2px; }
 .weather-badge strong { color: var(--brand); font-size: 18px; }
 .weather-badge span { font-size: 9px; }
-.weather-panel { position: absolute; top: calc(100% + 8px); right: 0; z-index: 20; width: min(220px, calc(100vw - 82px)); padding: 14px 14px 12px; border: 1px solid #d0d6eb; border-radius: 16px; background: var(--paper); color: var(--ink); box-shadow: 0 16px 28px rgba(41,70,99,0.16); }
+.weather-panel { position: absolute; top: calc(100% + 8px); right: 0; z-index: 20; width: min(258px, calc(100vw - 82px)); padding: 14px 14px 12px; border: 1px solid #d0d6eb; border-radius: 16px; background: var(--paper); color: var(--ink); box-shadow: 0 16px 28px rgba(41,70,99,0.16); }
 .weather-panel-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
 .weather-panel-location { min-width: 0; flex: 1; }
 .weather-panel-header h3 { margin: 3px 0 0; font-size: 15px; line-height: 1.2; overflow-wrap: anywhere; }
@@ -59,6 +59,13 @@ button { font: inherit; }
 .weather-panel-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 8px; margin-top: 12px; }
 .weather-panel-grid span { color: var(--blue); font: 700 9px Arial, sans-serif; letter-spacing: 1px; }
 .weather-panel-grid strong { display: block; margin-top: 4px; color: var(--ink); font: 12px Georgia, serif; letter-spacing: 0; }
+.weather-recommendation-panel .weather-panel-snapshot strong { font-size: 15px; }
+.weather-outfit-image { display: block; width: 100%; height: 128px; margin-top: 12px; border-radius: 11px; object-fit: cover; }
+.weather-photo-credit { display: block; margin-top: 4px; color: var(--muted); font: 9px Arial, sans-serif; text-align: right; }
+.weather-outfit-title { margin: 10px 0 0; color: var(--brand); font-size: 15px; }
+.weather-advice { margin: 12px 0 0; border-radius: 10px; padding: 10px; background: var(--lavender); color: var(--ink); font: 12px/1.45 Arial, sans-serif; }
+.weather-demo-button { width: 100%; margin-top: 10px; padding: 9px 6px; font-size: 8px; }
+.weather-error-state .weather-empty { color: #a34432; line-height: 1.4; }
 .weather-form { margin-top: 14px; }
 .weather-form label { display: grid; gap: 6px; color: var(--blue); font: 700 9px Arial, sans-serif; letter-spacing: 1px; }
 .location-input-wrap { position: relative; }

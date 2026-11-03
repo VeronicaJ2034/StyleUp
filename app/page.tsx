@@ -8,8 +8,6 @@ type Tab = 'matches' | 'outfits' | 'add';
 type ClothingItem = { id?: string; recordId?: string; name: string; category: string; color: string; tone: string; imageUrl?: string };
 type Analysis = { category: string; color: string; secondaryColor: string | null; pattern: string; style: string; formality: string };
 type OutfitRecommendation = { title: string; description: string; itemIds: string[] };
-type WeatherState = { temperature: number; description: string; rainChance: number; humidity: number; windSpeed: number; locationName: string; latitude: number; longitude: number };
-type GeoSearchResult = { name: string; country?: string; admin1?: string; latitude: number; longitude: number };
 type AddClothingState = { isAnalyzing: boolean; error: string; analysis: Analysis | null };
 
 const initialAddClothingState: AddClothingState = { isAnalyzing: false, error: '', analysis: null };
@@ -447,263 +445,125 @@ function ThemeToggle({ isDarkMode, onToggle }: { isDarkMode: boolean; onToggle: 
   );
 }
 
+type WeatherReport = { temperature: number; code: number; rainChance: number; windSpeed: number };
+type OutfitTip = { icon: string; condition: string; title: string; advice: string; image: string; alt: string };
+
+function getOutfitTip(weather: WeatherReport): OutfitTip {
+  if ([51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82, 95, 96, 99].includes(weather.code) || weather.rainChance >= 45) {
+    return { icon: '🌧️', condition: 'RAIN EXPECTED', title: 'Rain-ready layers', advice: 'Bring a waterproof coat and umbrella to stay dry on your way out.', image: 'https://images.unsplash.com/photo-1551028719-00167b16eac5?auto=format&fit=crop&w=800&q=85', alt: 'Photograph of a black leather jacket' };
+  }
+  if (weather.temperature <= 50 || [71, 73, 75, 77, 85, 86].includes(weather.code)) {
+    return { icon: '🧥', condition: 'CHILLY OUT', title: 'A warm extra layer', advice: 'Reach for a warm coat and layer up—especially if you will be outside for a while.', image: 'https://images.unsplash.com/photo-1591047139829-d91aecb6caea?auto=format&fit=crop&w=800&q=85', alt: 'Photograph of a warm rust-colored jacket on a hanger' };
+  }
+  if (weather.temperature >= 72 && [0, 1, 2, 3].includes(weather.code)) {
+    return { icon: '☀️', condition: 'BRIGHT & WARM', title: 'Keep it light', advice: 'Choose breathable clothes, and bring a hat and sunglasses for extra sun protection.', image: 'https://images.unsplash.com/photo-1529139574466-a303027c1d8b?auto=format&fit=crop&w=800&q=85', alt: 'Photograph of a person in a casual outfit wearing sunglasses' };
+  }
+  return { icon: '☁️', condition: 'MILD WEATHER', title: 'Easy layers', advice: 'A comfortable outfit with a light jacket gives you an easy layer if the breeze picks up.', image: 'https://images.unsplash.com/photo-1523381210434-271e8be1f52b?auto=format&fit=crop&w=800&q=85', alt: 'Photograph of shirts hanging on a clothing rack' };
+}
+
+function describeWeatherCode(code: number) {
+  if (code === 0) return 'Clear';
+  if ([1, 2, 3].includes(code)) return 'Partly cloudy';
+  if ([45, 48].includes(code)) return 'Foggy';
+  if ([51, 53, 55, 56, 57].includes(code)) return 'Drizzle';
+  if ([61, 63, 65, 66, 67, 80, 81, 82].includes(code)) return 'Rain';
+  if ([71, 73, 75, 77, 85, 86].includes(code)) return 'Snow';
+  if ([95, 96, 99].includes(code)) return 'Thunderstorms';
+  return 'Local weather';
+}
+
 function WeatherBadge() {
-  const [weather, setWeather] = useState<WeatherState | null>(null);
-  const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
-  const [refresh, setRefresh] = useState(0);
   const [panelOpen, setPanelOpen] = useState(false);
-  const [manualLocation, setManualLocation] = useState('');
-  const [manualStatus, setManualStatus] = useState<'idle' | 'loading' | 'error'>('idle');
-  const [locationSuggestions, setLocationSuggestions] = useState<GeoSearchResult[]>([]);
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  const [isSearchingLocations, setIsSearchingLocations] = useState(false);
+  const [weather, setWeather] = useState<WeatherReport | null>(null);
+  const [status, setStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
 
-  const loadWeatherForCoordinates = async (latitude: number, longitude: number, fallbackName?: string) => {
-    try {
-      const params = new URLSearchParams({
-        latitude: String(latitude),
-        longitude: String(longitude),
-        current: 'temperature_2m,weather_code,relative_humidity_2m,wind_speed_10m',
-        daily: 'precipitation_probability_max',
-        temperature_unit: 'fahrenheit',
-        timezone: 'auto',
-        forecast_days: '1',
-      });
-
-      const response = await fetch(`https://api.open-meteo.com/v1/forecast?${params}`);
-      if (!response.ok) throw new Error('Weather request failed');
-
-      const data = await response.json();
-      const locationName = fallbackName ?? (await getLocationName(latitude, longitude));
-      const chanceOfRain = Number(data.daily?.precipitation_probability_max?.[0] ?? 0);
-
-      setWeather({
-        temperature: Math.round(data.current.temperature_2m),
-        description: describeWeather(data.current.weather_code),
-        rainChance: Number.isFinite(chanceOfRain) ? chanceOfRain : 0,
-        humidity: Number(data.current.relative_humidity_2m ?? 0),
-        windSpeed: Math.round(Number(data.current.wind_speed_10m ?? 0)),
-        locationName: locationName === 'Your location' ? 'Approximate current location' : locationName,
-        latitude,
-        longitude,
-      });
-      setStatus('ready');
-    } catch {
-      setStatus('error');
-    }
-  };
-
-  const loadCurrentLocationWeather = (openPanel = true) => {
-    setPanelOpen(openPanel);
+  function loadWeather() {
     if (!navigator.geolocation) {
       setStatus('error');
       return;
     }
-
     setStatus('loading');
     navigator.geolocation.getCurrentPosition(async ({ coords }) => {
-      await loadWeatherForCoordinates(coords.latitude, coords.longitude, 'Approximate current location');
-    }, () => {
-      setStatus('error');
-    }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 5 * 60 * 1000 });
-  };
-
-  const handleManualLocation = async (event?: FormEvent<HTMLFormElement>) => {
-    if (event) event.preventDefault();
-    const query = manualLocation.trim();
-    if (!query) return;
-
-    setManualStatus('loading');
-    try {
-      const requestUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=1&language=en&format=json`;
-      const response = await fetch(requestUrl);
-      if (!response.ok) throw new Error('Location lookup failed');
-      const data = await response.json();
-      const result: GeoSearchResult | undefined = data.results?.[0];
-      if (!result) throw new Error('Location not found');
-
-      const locationName = [result.name, result.admin1, result.country].filter(Boolean).join(', ');
-      await loadWeatherForCoordinates(result.latitude, result.longitude, locationName);
-      setManualLocation('');
-      setManualStatus('idle');
-      setLocationSuggestions([]);
-      setShowSuggestions(false);
-      setPanelOpen(false);
-    } catch {
-      setManualStatus('error');
-    }
-  };
-
-  useEffect(() => {
-    const query = manualLocation.trim();
-    if (query.length < 2) {
-      setLocationSuggestions([]);
-      setShowSuggestions(false);
-      return;
-    }
-
-    const timeoutId = window.setTimeout(async () => {
-      setIsSearchingLocations(true);
       try {
-        const requestUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=5&language=en&format=json`;
-        const response = await fetch(requestUrl);
-        if (!response.ok) throw new Error('Location lookup failed');
+        const params = new URLSearchParams({
+          latitude: String(coords.latitude),
+          longitude: String(coords.longitude),
+          current: 'temperature_2m,weather_code,precipitation,wind_speed_10m',
+          daily: 'precipitation_probability_max',
+          temperature_unit: 'fahrenheit',
+          wind_speed_unit: 'mph',
+          timezone: 'auto',
+          forecast_days: '1',
+        });
+        const response = await fetch(`https://api.open-meteo.com/v1/forecast?${params}`);
+        if (!response.ok) throw new Error('Weather request failed');
         const data = await response.json();
-        setLocationSuggestions(data.results ?? []);
-        setShowSuggestions(true);
+        const report = {
+          temperature: Math.round(Number(data.current.temperature_2m)),
+          code: Number(data.current.weather_code),
+          rainChance: Number(data.daily?.precipitation_probability_max?.[0] ?? 0),
+          windSpeed: Math.round(Number(data.current.wind_speed_10m ?? 0)),
+        };
+        if (!Number.isFinite(report.temperature) || !Number.isFinite(report.code)) throw new Error('Weather data was unavailable');
+        setWeather(report);
+        setStatus('ready');
       } catch {
-        setLocationSuggestions([]);
-      } finally {
-        setIsSearchingLocations(false);
+        setStatus('error');
       }
-    }, 250);
+    }, () => setStatus('error'), { timeout: 12000, maximumAge: 10 * 60 * 1000 });
+  }
 
-    return () => window.clearTimeout(timeoutId);
-  }, [manualLocation]);
+  function togglePanel() {
+    const shouldOpen = !panelOpen;
+    setPanelOpen(shouldOpen);
+    if (shouldOpen && status !== 'loading') loadWeather();
+  }
 
-  useEffect(() => {
-    void loadCurrentLocationWeather();
-  }, [refresh]);
+  const outfit = weather ? getOutfitTip(weather) : null;
 
-  useEffect(() => {
-    const interval = window.setInterval(() => setRefresh((value) => value + 1), 15 * 60 * 1000);
-    return () => window.clearInterval(interval);
-  }, []);
-
-  const label = status === 'ready' ? weather?.description ?? 'LOCAL WEATHER' : status === 'loading' ? 'YOUR AREA' : 'TAP TO RETRY';
   return (
     <div className="weather-wrapper">
       <button
         className="weather-badge"
         type="button"
-        onClick={() => {
-          setPanelOpen((value) => !value);
-          if (status === 'error') {
-            setStatus('loading');
-            setRefresh((value) => value + 1);
-          }
-        }}
+        onClick={togglePanel}
         aria-expanded={panelOpen}
-        aria-label={status === 'ready' && weather ? `${weather.temperature} degrees, ${weather.description} in your location` : 'Get weather for your location'}
-        title={status === 'error' ? 'Allow location access to see local weather' : 'Current weather at your location'}
+        aria-label={weather ? `Weather outfit suggestion, ${weather.temperature} degrees` : 'Get a weather-based outfit suggestion'}
+        title="Get a weather-based outfit suggestion"
       >
-        <strong>{weather ? `${weather.temperature}°F` : status === 'loading' ? '···' : '—'}</strong>
-        <span>{label}</span>
+        <strong>{weather ? `${weather.temperature}°F` : '☁️'}</strong>
+        <span>{weather ? 'OUTFIT TIP' : 'WEATHER TIP'}</span>
       </button>
 
       {panelOpen && (
-        <div className="weather-panel" role="dialog" aria-label="Weather details and location controls">
+        <div className="weather-panel weather-recommendation-panel" role="dialog" aria-label="Local weather and outfit suggestion">
           <div className="weather-panel-header">
             <div className="weather-panel-location">
-              <p className="weather-label">CURRENT LOCATION</p>
-              <h3>{weather?.locationName ?? 'Local conditions'}</h3>
-              <small>Approximate based on your device location</small>
+              <p className="weather-label">WEATHER-BASED OUTFIT</p>
+              <h3>What to wear today</h3>
+              <small>Uses your location only to check local weather</small>
             </div>
-            <button type="button" className="close-panel" onClick={() => setPanelOpen(false)} aria-label="Close weather details">×</button>
+            <button type="button" className="close-panel" onClick={() => setPanelOpen(false)} aria-label="Close outfit suggestion">×</button>
           </div>
 
-          {status === 'ready' && weather ? (
-            <>
-              <div className="weather-panel-snapshot">
-                <div>
-                  <span className="weather-mini-label">NOW</span>
-                  <strong>{weather.temperature}°F</strong>
-                </div>
-                <div>
-                  <span className="weather-mini-label">OUTLOOK</span>
-                  <strong>{weather.description}</strong>
-                </div>
-              </div>
-
-              <div className="weather-panel-grid">
-                <span>RAIN CHANCE<strong>{weather.rainChance}%</strong></span>
-                <span>HUMIDITY<strong>{weather.humidity}%</strong></span>
-                <span>WIND<strong>{weather.windSpeed} mph</strong></span>
-                <span>COORDS<strong>{weather.latitude.toFixed(2)}, {weather.longitude.toFixed(2)}</strong></span>
-              </div>
-            </>
-          ) : (
-            <p className="weather-empty">Weather details are unavailable right now.</p>
-          )}
-
-          <form className="weather-form" onSubmit={handleManualLocation}>
-            <label>
-              CHANGE LOCATION
-              <div className="location-input-wrap">
-                <input
-                  value={manualLocation}
-                  onChange={(event) => setManualLocation(event.target.value)}
-                  onFocus={() => setShowSuggestions(manualLocation.trim().length >= 2)}
-                  onBlur={() => window.setTimeout(() => setShowSuggestions(false), 120)}
-                  placeholder="Search a city or area"
-                  aria-autocomplete="list"
-                  aria-expanded={showSuggestions}
-                />
-                {showSuggestions && (
-                  <ul className="location-suggestions" role="listbox">
-                    {isSearchingLocations ? (
-                      <li className="location-suggestion muted">Searching…</li>
-                    ) : locationSuggestions.length > 0 ? (
-                      locationSuggestions.map((suggestion) => {
-                        const label = [suggestion.name, suggestion.admin1, suggestion.country].filter(Boolean).join(', ');
-                        return (
-                          <li key={`${label}-${suggestion.latitude}-${suggestion.longitude}`} className="location-suggestion" role="option" onMouseDown={() => {
-                            setManualLocation(label);
-                            setLocationSuggestions([]);
-                            setShowSuggestions(false);
-                            void (async () => {
-                              const locationName = [suggestion.name, suggestion.admin1, suggestion.country].filter(Boolean).join(', ');
-                              setManualStatus('loading');
-                              await loadWeatherForCoordinates(suggestion.latitude, suggestion.longitude, locationName);
-                              setManualStatus('idle');
-                              setPanelOpen(false);
-                            })();
-                          }}>
-                            {label}
-                          </li>
-                        );
-                      })
-                    ) : (
-                      <li className="location-suggestion muted">No matches found</li>
-                    )}
-                  </ul>
-                )}
-              </div>
-            </label>
-            <div className="weather-form-actions">
-              <button type="submit" className="primary-button small-button">UPDATE LOCATION</button>
-              <button type="button" className="secondary-button small-button" onClick={() => loadCurrentLocationWeather(false)}>USE MY LOCATION</button>
+          {status === 'loading' && <p className="weather-empty" role="status">Checking your local weather…</p>}
+          {status === 'error' && <div className="weather-error-state"><p className="weather-empty">Couldn’t get your weather. Allow location access and try again.</p><button type="button" className="secondary-button weather-demo-button" onClick={loadWeather}>TRY AGAIN</button></div>}
+          {status === 'ready' && weather && outfit && <>
+            <div className="weather-panel-snapshot">
+              <div><span className="weather-mini-label">OUTSIDE</span><strong>{outfit.icon} {describeWeatherCode(weather.code)}</strong></div>
+              <div><span className="weather-mini-label">TEMP</span><strong>{weather.temperature}°F</strong></div>
             </div>
-            {manualStatus === 'error' && <p className="account-error">We couldn’t find that location. Try another city or area.</p>}
-          </form>
+            <img className="weather-outfit-image" src={outfit.image} alt={outfit.alt} />
+            <span className="weather-photo-credit">Clothing photo via Unsplash</span>
+            <h4 className="weather-outfit-title">{outfit.title}</h4>
+            <p className="weather-advice">{outfit.advice}</p>
+            <div className="weather-panel-grid"><span>RAIN CHANCE<strong>{weather.rainChance}%</strong></span><span>WIND<strong>{weather.windSpeed} mph</strong></span></div>
+            <button type="button" className="secondary-button weather-demo-button" onClick={loadWeather}>REFRESH WEATHER ↻</button>
+          </>}
         </div>
       )}
     </div>
   );
-}
-
-async function getLocationName(latitude: number, longitude: number): Promise<string> {
-  try {
-    const response = await fetch(`https://geocoding-api.open-meteo.com/v1/reverse?latitude=${latitude}&longitude=${longitude}&language=en&format=json`);
-    if (!response.ok) return 'Your location';
-    const data = await response.json();
-    const result = data.results?.[0];
-    if (!result) return 'Your location';
-    return [result.name, result.admin1, result.country].filter(Boolean).join(', ');
-  } catch {
-    return 'Your location';
-  }
-}
-
-function describeWeather(code: number): string {
-  if (code === 0) return 'CLEAR';
-  if ([1, 2, 3].includes(code)) return 'CLOUDY';
-  if ([45, 48].includes(code)) return 'FOGGY';
-  if ([51, 53, 55, 56, 57].includes(code)) return 'DRIZZLE';
-  if ([61, 63, 65, 66, 67, 80, 81, 82].includes(code)) return 'RAINY';
-  if ([71, 73, 75, 77, 85, 86].includes(code)) return 'SNOWY';
-  if ([95, 96, 99].includes(code)) return 'STORMY';
-  return 'LOCAL WEATHER';
 }
 
 function LoadingScreen() {
