@@ -1,7 +1,14 @@
 import Groq from "groq-sdk";
 import * as z from "zod";
 
-const ai = new Groq({ apiKey: process.env.GROQ_API_KEY });
+function getGroqClient() {
+  const apiKey = process.env.GROQ_API_KEY;
+  if (!apiKey) {
+    throw new Error("GROQ_API_KEY is missing. Add it to your environment before using outfit recommendations.");
+  }
+
+  return new Groq({ apiKey });
+}
 
 const requestItemSchema = z.object({
   id: z.string(),
@@ -64,6 +71,7 @@ async function fetchImagePart(imageUrl: string) {
 
 export async function POST(request: Request) {
   try {
+    const ai = getGroqClient();
     const body = await request.json();
     const items = z.array(requestItemSchema).min(1).parse(body.items);
     const imageParts = await Promise.all(items.map((item) => fetchImagePart(item.imageUrl)));

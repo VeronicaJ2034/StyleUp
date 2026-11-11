@@ -1,9 +1,14 @@
 import { GoogleGenAI } from "@google/genai";
 import * as z from "zod";
 
-const ai = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY,
-});
+function getGeminiClient() {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    throw new Error("GEMINI_API_KEY is missing. Add it to your environment before using the clothing analyzer.");
+  }
+
+  return new GoogleGenAI({ apiKey });
+}
 
 const clothingSchema = z.object({
   category: z.enum(["shirt", "jacket", "pants", "shoes"]),
@@ -26,6 +31,7 @@ function isTransientGeminiError(error: unknown) {
 
 async function analyzeWithRetry(base64Image: string, mimeType: string) {
   const maxAttempts = 3;
+  const ai = getGeminiClient();
 
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     try {

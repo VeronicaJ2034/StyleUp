@@ -86,6 +86,8 @@ GROQ_API_KEY=gsk_your_groq_api_key
 
 After changing `.env.local`, restart the Next.js development server so the new values are loaded.
 
+The shopping catalog includes men's and women's sections, with a toggle above the store and category filters. Both sections use locally stored AI-generated illustrations. Store names are organizational placeholders; the images are not verified retailer products. Prices, product details, reviews, and checkout are illustrative.
+
 ### Supabase accounts and profile photos
 
 1. Create a Supabase project and copy its project URL and public anon/publishable key into `.env.local` using the variable names above. These public values are safe to use in the browser; never put a service-role key in a `NEXT_PUBLIC_` variable.
