@@ -2,9 +2,10 @@
 
 import { ChangeEvent, Dispatch, FormEvent, SetStateAction, useEffect, useId, useRef, useState } from 'react';
 import ProfileAccount from '../components/ProfileAccount';
+import ShoppingScreen from '../components/ShoppingScreen';
 import { supabase } from '../lib/supabase';
 
-type Tab = 'matches' | 'outfits' | 'add' | 'friends' | 'try-on';
+type Tab = 'matches' | 'shopping' | 'outfits' | 'add' | 'friends' | 'try-on';
 type ClothingItem = { id?: string; recordId?: string; name: string; category: string; color: string; tone: string; imageUrl?: string };
 type Analysis = { category: string; color: string; secondaryColor: string | null; pattern: string; style: string; formality: string };
 type OutfitRecommendation = { title: string; description: string; itemIds: string[] };
@@ -401,7 +402,7 @@ export default function HomePage() {
               </div>
             </header>
             <div className="screen-content">
-              {activeTab === 'matches' ? <MatchesScreen items={closetItems} onDelete={deleteClosetItem} onRename={renameClosetItem} /> : activeTab === 'outfits' ? <OutfitsScreen items={closetItems} recommendations={outfitRecommendations} isGenerating={isGeneratingOutfits} error={outfitError} onGenerate={generateOutfits} onRename={renameClosetItem} /> : activeTab === 'add' ? <AddClothingScreen items={closetItems} state={addClothingState} setState={setAddClothingState} onDelete={deleteClosetItem} onRename={renameClosetItem} onItemSaved={async (item) => {
+              {activeTab === 'matches' ? <MatchesScreen items={closetItems} onDelete={deleteClosetItem} onRename={renameClosetItem} /> : activeTab === 'shopping' ? <ShoppingScreen closetItems={closetItems} outfitRecommendations={outfitRecommendations} /> : activeTab === 'outfits' ? <OutfitsScreen items={closetItems} recommendations={outfitRecommendations} isGenerating={isGeneratingOutfits} error={outfitError} onGenerate={generateOutfits} onRename={renameClosetItem} /> : activeTab === 'add' ? <AddClothingScreen items={closetItems} state={addClothingState} setState={setAddClothingState} onDelete={deleteClosetItem} onRename={renameClosetItem} onItemSaved={async (item) => {
                 const savedItem = { ...item, id: item.id ?? makeId() };
                 if (!supabase) {
                   setClosetItems((current) => [savedItem, ...current]);
@@ -421,6 +422,7 @@ export default function HomePage() {
             </div>
             <nav className="tab-bar" aria-label="Closet sections">
               <TabButton label="CLOSET" symbol="+" active={activeTab === 'matches'} onClick={() => setActiveTab('matches')} />
+              <TabButton label="SHOPPING" symbol="▱" active={activeTab === 'shopping'} onClick={() => setActiveTab('shopping')} />
               <TabButton label="OUTFITS" symbol="✦" active={activeTab === 'outfits'} onClick={() => setActiveTab('outfits')} />
               <TabButton label="ADD CLOTHING" symbol="↑" active={activeTab === 'add'} onClick={() => setActiveTab('add')} />
               <TabButton label="FRIENDS" symbol="♡" active={activeTab === 'friends'} onClick={() => setActiveTab('friends')} />
