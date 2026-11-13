@@ -12,6 +12,26 @@ type OutfitRecommendation = { title: string; description: string; itemIds: strin
 type AddClothingState = { isAnalyzing: boolean; error: string; analysis: Analysis | null };
 
 const initialAddClothingState: AddClothingState = { isAnalyzing: false, error: '', analysis: null };
+const recommendedBelts = [
+  {
+    id: 'universal-thread',
+    name: 'Women’s Double Harness Metal Loop Belt',
+    price: '$16.00',
+    brand: 'Universal Thread™',
+    href: 'https://www.target.com/p/women-s-double-harness-metal-loop-belt-universal-thread-black/-/A-82886311?preselect=88322970',
+    image: 'https://target.scene7.com/is/image/Target/GUEST_ebd6d8ae-c28b-4f7d-9f95-994e95a0779d?wid=600&hei=600&qlt=80',
+    alt: "Black women's double harness metal loop belt",
+  },
+  {
+    id: 'alilang',
+    name: 'Suede Leather Skinny Belt with Equestrian Buckle',
+    price: '$24.99',
+    brand: 'Alilang',
+    href: 'https://www.target.com/p/alilang-women-s-suede-leather-skinny-belt-with-equestrian-buckle-39-4in/-/A-1014066370?preselect=1014066373#lnk=sametab',
+    image: 'https://target.scene7.com/is/image/Target/GUEST_a7c1f62b-a8a0-4a33-9a7b-f25cd6e4b36f?wid=600&hei=600&qlt=80',
+    alt: 'Coffee suede skinny belt with a gold-tone equestrian buckle',
+  },
+] as const;
 
 const categories = ['Tops', 'Pants', 'Jackets', 'Shoes'];
 const categoryTones = ['#8D86C0', '#7A91B2', '#A38BC0', '#8A9DB7'];
@@ -885,6 +905,27 @@ function MatchesScreen({ items, onDelete, onRename }: { items: ClothingItem[]; o
 
 function OutfitsScreen({ items, recommendations, isGenerating, error, onGenerate, onRename }: { items: ClothingItem[]; recommendations: OutfitRecommendation[]; isGenerating: boolean; error: string; onGenerate: () => Promise<void>; onRename: (item: ClothingItem, name: string) => Promise<void> }) {
   const itemById = new Map(items.map((item) => [item.id, item]));
+  const [selectedBelt, setSelectedBelt] = useState<string | null>(null);
+  const [confettiBurst, setConfettiBurst] = useState<{ beltId: string; key: number } | null>(null);
+  const confettiTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const confettiKeyRef = useRef(0);
+
+  useEffect(() => () => {
+    if (confettiTimerRef.current) clearTimeout(confettiTimerRef.current);
+  }, []);
+
+  function toggleBeltSelection(beltId: string) {
+    if (confettiTimerRef.current) clearTimeout(confettiTimerRef.current);
+    if (selectedBelt === beltId) {
+      setSelectedBelt(null);
+      setConfettiBurst(null);
+      return;
+    }
+
+    setSelectedBelt(beltId);
+    setConfettiBurst({ beltId, key: ++confettiKeyRef.current });
+    confettiTimerRef.current = setTimeout(() => setConfettiBurst(null), 900);
+  }
 
   return <>
     <h2 className="outfit-page-heading">Outfit recommendations</h2>
@@ -902,6 +943,37 @@ function OutfitsScreen({ items, recommendations, isGenerating, error, onGenerate
         <div className="outfit-items">{outfitItems.map((item) => <ClothingCard item={item} onRename={onRename} key={item.id ?? item.imageUrl ?? item.name} />)}</div>
       </article>;
     })}</div>
+    <section className="complete-look" aria-labelledby="complete-look-heading">
+      <h3 id="complete-look-heading">Complete this look</h3>
+      <p className="complete-look-hint">Swipe to explore belts</p>
+      <div className="complete-look-carousel" role="region" aria-label="Belt recommendations">
+        {recommendedBelts.map((belt) => {
+          const isSelected = selectedBelt === belt.id;
+          return <article className={`complete-look-card${isSelected ? ' selected' : ''}`} key={belt.id}>
+            {confettiBurst?.beltId === belt.id && <div className="complete-look-confetti" key={confettiBurst.key} aria-hidden="true">
+              {Array.from({ length: 12 }, (_, index) => <span key={index} />)}
+            </div>}
+            <button
+              className="complete-look-select"
+              type="button"
+              aria-label={isSelected ? `Remove ${belt.name} from your outfit` : `Add ${belt.name} to your outfit`}
+              aria-pressed={isSelected}
+              onClick={() => toggleBeltSelection(belt.id)}
+            >
+              <span aria-hidden="true">{isSelected ? '✓' : '+'}</span>
+            </button>
+            <a className="complete-look-product" href={belt.href} target="_blank" rel="noreferrer">
+              <img src={belt.image} alt={belt.alt} loading="lazy" />
+              <span>
+                <strong>{belt.name}</strong>
+                <b>{belt.price}</b>
+                <small>{belt.brand} · Shop at Target ↗</small>
+              </span>
+            </a>
+          </article>;
+        })}
+      </div>
+    </section>
   </>;
 }
 
