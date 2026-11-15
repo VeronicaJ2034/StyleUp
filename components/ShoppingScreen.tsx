@@ -2,8 +2,9 @@
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { shoppingProducts, shoppingStores, type ShoppingCategory, type ShoppingProduct, type ShoppingSection } from '../lib/shoppingCatalog';
+import MarketplaceScreen from './MarketplaceScreen';
 
-type ClosetItem = { id?: string; category: string };
+type ClosetItem = { id?: string; name?: string; category: string; imageUrl?: string };
 type OutfitRecommendation = { title: string; itemIds: string[] };
 type CartEntry = { productId: string; quantity: number };
 type ShoppingFilter = 'RECOMMENDED' | 'ALL' | ShoppingCategory;
@@ -91,6 +92,7 @@ export default function ShoppingScreen({ closetItems, outfitRecommendations = []
   const [orderReference, setOrderReference] = useState('');
   const [hasLoadedCart, setHasLoadedCart] = useState(false);
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
+  const [showMarketplace, setShowMarketplace] = useState(false);
 
   useEffect(() => {
     setCart(getInitialCart());
@@ -103,7 +105,7 @@ export default function ShoppingScreen({ closetItems, outfitRecommendations = []
 
   useEffect(() => {
     (shoppingPageRef.current?.closest('.screen-content') as HTMLElement | null)?.scrollTo({ top: 0, behavior: 'auto' });
-  }, [checkoutStage, selectedProductId, showCart]);
+  }, [checkoutStage, selectedProductId, showCart, showMarketplace]);
 
   const gaps = useMemo(() => getRecommendedCategories(closetItems, outfitRecommendations), [closetItems, outfitRecommendations]);
   const products = useMemo(() => shoppingProducts.filter((product) => {
@@ -189,13 +191,21 @@ export default function ShoppingScreen({ closetItems, outfitRecommendations = []
 
   return <div className="shopping-page" ref={shoppingPageRef}>
     <div className="shopping-heading">
-      <div><p className="shopping-eyebrow">STYLEUP EDIT</p><h2>{showCart ? checkoutStage === 'confirmation' ? 'Order complete' : checkoutStage === 'details' ? 'Checkout' : 'Your cart' : selectedProduct ? 'Product details' : 'Shopping'}</h2></div>
-      <button className={`shopping-cart-toggle${showCart ? ' selected' : ''}`} type="button" onClick={() => { setSelectedProductId(null); setShowCart((current) => !current); setCheckoutStage('cart'); }} aria-label={showCart ? 'Continue shopping' : `Open cart, ${cartCount} items`}>
-        <span aria-hidden="true">{showCart ? '←' : '▱'}</span><small>{showCart ? 'SHOP' : `CART ${cartCount}`}</small>
+      <div><p className="shopping-eyebrow">{showMarketplace ? 'STYLEUP MARKETPLACE' : 'STYLEUP EDIT'}</p><h2>{showMarketplace ? 'Pre-loved' : showCart ? checkoutStage === 'confirmation' ? 'Order complete' : checkoutStage === 'details' ? 'Checkout' : 'Your cart' : selectedProduct ? 'Product details' : 'Shopping'}</h2></div>
+      <button className={`shopping-cart-toggle${showCart ? ' selected' : ''}`} type="button" onClick={() => {
+        if (showMarketplace) {
+          setShowMarketplace(false);
+          return;
+        }
+        setSelectedProductId(null);
+        setShowCart((current) => !current);
+        setCheckoutStage('cart');
+      }} aria-label={showMarketplace || showCart ? 'Continue shopping' : `Open cart, ${cartCount} items`}>
+        <span aria-hidden="true">{showMarketplace || showCart ? '←' : '▱'}</span><small>{showMarketplace || showCart ? 'SHOP' : `CART ${cartCount}`}</small>
       </button>
     </div>
 
-    {showCart ? checkoutStage === 'cart' ? <>
+    {showMarketplace ? <MarketplaceScreen closetItems={closetItems} onClose={() => setShowMarketplace(false)} /> : showCart ? checkoutStage === 'cart' ? <>
       {cartProducts.length === 0 ? <div className="shopping-empty-cart"><span aria-hidden="true">▱</span><h3>Your cart is empty</h3><p>Save pieces from any store and they’ll collect here.</p><button className="primary-button" type="button" onClick={returnToShopping}>EXPLORE STORES</button></div> : <>
         <div className="shopping-cart-list">{cartProducts.map(({ product, quantity }) => {
           const store = shoppingStores.find((item) => item.id === product.storeId);
@@ -238,6 +248,10 @@ export default function ShoppingScreen({ closetItems, outfitRecommendations = []
         {selectedProduct.reviews.map((review) => <article className="shopping-review" key={review.author}><div><strong>{review.title}</strong><span>★★★★★</span></div><p>{review.text}</p><small>{review.author} · Sample review</small></article>)}
       </section>
     </> : <>
+      <div className="shopping-mode-toggle" role="group" aria-label="Shopping mode">
+        <button className="active" type="button" aria-pressed="true">SHOP NEW</button>
+        <button type="button" aria-pressed="false" onClick={() => { setShowMarketplace(true); setShowCart(false); }}>PRE-LOVED</button>
+      </div>
       <div className="shopping-section-toggle" role="group" aria-label="Clothing section">
         <button type="button" className={section === 'men' ? 'active' : ''} aria-pressed={section === 'men'} onClick={() => selectSection('men')}>MEN&apos;S</button>
         <button type="button" className={section === 'women' ? 'active' : ''} aria-pressed={section === 'women'} onClick={() => selectSection('women')}>WOMEN&apos;S</button>

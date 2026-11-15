@@ -12,6 +12,7 @@ The application is presented inside a responsive phone-shaped preview. The phone
 * Loading screen
 * Tab navigation
 * Clothing item cards and styling
+* Shopping catalog with a pre-loved marketplace for publishing, browsing, and preview-purchasing secondhand listings
 * Add clothing interface
 * Style friends area with Instagram and Snapchat connection previews
 * Conceptual try-on studio with a customizable style model
@@ -87,6 +88,8 @@ GROQ_API_KEY=gsk_your_groq_api_key
 After changing `.env.local`, restart the Next.js development server so the new values are loaded.
 
 The shopping catalog includes men's and women's sections, with a toggle above the store and category filters. Both sections use locally stored AI-generated illustrations. Store names are organizational placeholders; the images are not verified retailer products. Prices, product details, reviews, and checkout are illustrative.
+
+The pre-loved marketplace requires selecting a photographed clothing item from your closet to create a listing. Closet item previews are shown in the picker, and the selection prefills the listing name and category. Browse and search listings by brand or item, then complete a simulated purchase. Listings are stored in the current browser's local storage and are not shared with other users or devices. Payments, shipping, seller payouts, and real orders are not connected.
 
 ### Supabase accounts and profile photos
 
