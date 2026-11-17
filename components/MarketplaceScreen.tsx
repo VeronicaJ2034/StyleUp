@@ -170,14 +170,14 @@ export default function MarketplaceScreen({ closetItems, onClose }: { closetItem
     let isActive = true;
     const syncAccount = async () => {
       try {
-        const { data, error: accountError } = await client.auth.getUser();
+        const { data, error: accountError } = await client.auth.getSession();
         if (!isActive) return;
         if (accountError) {
           console.error('Could not load marketplace account:', accountError);
           setError('Your account details could not be loaded. Try again before creating a listing.');
           return;
         }
-        setSellerAccount(getMarketplaceAccount(data.user));
+        setSellerAccount(getMarketplaceAccount(data.session?.user ?? null));
       } catch (accountError) {
         if (!isActive) return;
         console.error('Could not load marketplace account:', accountError);
